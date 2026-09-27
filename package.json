@@ -1,0 +1,19 @@
+{
+  "name": "prep-canada",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "IELTS General Training and TEF Canada coach: placement tests, personal courses and adaptive mock tests.",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "test": "node test/smoke.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.2.17"
+  }
+}
