@@ -9,8 +9,11 @@
     "start": "node server.js",
     "test": "node test/smoke.js"
   },
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "dependencies": {
+    "@breezystack/lamejs": "^1.2.7",
     "postgres": "^3.4.5"
   },
   "devDependencies": {

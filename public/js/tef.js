@@ -102,7 +102,7 @@ function fixDocs(docs,start){
 }
 function fixContent(j,data){
   if(!data||typeof data!=='object')throw{code:'invalid_json'};
-  if(j.k==='R'||j.k==='L'){const P=j.k==='R'?RPART:LPART;const docs=fixDocs(data.docs,P[j.i].start);if(!docs.length)throw{code:'invalid_json'};if(j.k==='L'&&docs.some(d=>!d.script.length))throw{code:'invalid_json'};return{title:String(data.title||''),type:P[j.i].type,docs}}
+  if(j.k==='R'||j.k==='L'){const P=j.k==='R'?RPART:LPART;const docs=fixDocs(data.docs,P[j.i].start);if(!docs.length)throw{code:'invalid_json'};if(j.k==='L'&&docs.some(d=>!d.script.length))throw{code:'invalid_json'};return{_pool:data._pool,title:String(data.title||''),type:P[j.i].type,docs}}
   if(j.k==='W'){if(!data.A||!data.B)throw{code:'invalid_json'};return data}
   if(j.k==='S'){if(!data.A||!data.B)throw{code:'invalid_json'};return data}
 }
@@ -173,7 +173,7 @@ function startTimer(){
 }
 function stopTimer(){if(S.timer){clearInterval(S.timer);S.timer=null}}
 function toPhaseB(k){
-  const st=S.run.state[k];stopSpeech();
+  const st=S.run.state[k];stopSpeech();S.exBusy=false;ctx.stopDictation();
   if(k==='W'){st.phase='B';st.deadline=Date.now()+35*60000}
   if(k==='S'){st.phase='Bwait';st.deadline=null}
   S.confirmNext=false;saveRun(S.run);render();window.scrollTo(0,0);
@@ -338,7 +338,7 @@ async function sendSpeak(){
   try{
     await saveRunNow(run);
     const reply=String((await ai('examiner',{attemptId:run.id,sec})).text||'').trim();
-    if(S.run!==run||st.phase!==sec)return;
+    if(S.run!==run||st.phase!==sec){S.exBusy=false;return}
     run.answers.S[sec].push({role:'ex',text:reply});sayEx(reply,sec==='B'?'friend':'staff');
   }catch(e){toast(errCopy(e))}
   S.exBusy=false;saveRun(run);render();ctx.stopDictation();
@@ -470,11 +470,17 @@ function viewTests(){
   const gaps=ORDER.filter(k=>p.scores[k]!=null).map(k=>({k,gap:minFor(k,p.target)-p.scores[k]})).sort((a,b)=>b.gap-a.gap)[0];
   return (!p.placementDone&&!busy?'<div class="banner">Faites d’abord le test de positionnement pour que les tests blancs s’adaptent à votre niveau. <button class="btn sm primary" data-act="placement" '+(SAMPLE?'':'disabled')+'>Commencer</button></div>':'')+
   (busy?'<div class="banner">Un test est en cours. <button class="btn sm primary" data-act="resume">Le reprendre</button></div>':'')+
-  (ctx.ent(EXAM).paid?'':'<div class="banner small">Offre gratuite : 1 test blanc par mois et 1 test de positionnement. <a href="#/plans">Voir les offres</a> pour des tests illimités et des voix naturelles.</div>')+'<div class="panel"><p class="eyebrow">Générateur de tests blancs</p><h2>Créer un nouveau test blanc</h2><p class="muted" style="max-width:64ch">Chaque test est inédit. Le mode Auto suit votre dernier score dans chaque compétence, et les épreuves de compréhension insistent sur les types de documents où vous perdez le plus de points.'+(gaps&&gaps.gap>0?' Votre plus grand écart : <b>'+SK[gaps.k]+'</b> ('+p.scores[gaps.k]+' → '+minFor(gaps.k,p.target)+').':'')+'</p>'+
+  (ctx.ent(EXAM).paid?usageLine():'<div class="banner small">Offre gratuite : 1 test blanc par mois et 1 test de positionnement. <a href="#/plans">Voir les offres</a> pour des tests illimités et des voix naturelles.</div>')+'<div class="panel"><p class="eyebrow">Générateur de tests blancs</p><h2>Créer un nouveau test blanc</h2><p class="muted" style="max-width:64ch">Chaque test est inédit. Le mode Auto suit votre dernier score dans chaque compétence, et les épreuves de compréhension insistent sur les types de documents où vous perdez le plus de points.'+(gaps&&gaps.gap>0?' Votre plus grand écart : <b>'+SK[gaps.k]+'</b> ('+p.scores[gaps.k]+' → '+minFor(gaps.k,p.target)+').':'')+'</p>'+
   '<div class="stack"><span class="eyebrow">Test</span><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">'+types.map(([v,l,d])=>'<label class="choice"><input type="radio" name="mtype" value="'+v+'" '+(sel.type===v?'checked':'')+'><span class="mono">'+(v==='full'?'4':AB[v])+'</span><span><b>'+l+'</b><br><span class="small muted">'+d+'</span></span></label>').join('')+'</div></div>'+
   '<div class="stack"><span class="eyebrow">Difficulté</span><div class="opts">'+diffs.map(([v,l])=>'<label class="opt"><input type="radio" name="mdiff" value="'+v+'" '+(sel.diff===v?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><p class="small muted">'+(sel.diff==='auto'?(sel.type==='full'?ORDER:[sel.type]).map(k=>AB[k]+' : '+DIFF[autoDiff(k)].label).join(' · '):'Toutes les épreuves au niveau « '+DIFF[sel.diff].label+' ».')+'</p></div>'+
   '<div class="row"><button class="btn primary" data-act="mock" '+(busy||!SAMPLE?'disabled':'')+'>Créer et commencer</button><span class="small muted">Le test est écrit pendant que vous lisez les consignes. La première partie est prête en une minute environ.</span></div></div>';
 }
+function usageLine(){
+  const u=S.usage;if(!u||!u.sectionsLimit)return '';
+  const left=Math.max(0,u.sectionsLimit-u.sectionsUsed);
+  return '<div class="banner small'+(left<8?'':' good')+'">Ce mois-ci : '+u.sectionsUsed+' épreuves utilisées sur '+u.sectionsLimit+' ('+left+' restantes). Un test complet en utilise 4, un test d’une compétence en utilise 1. Remise à zéro le 1er du mois.</div>';
+}
+function loadUsage(){ctx.api('GET','/api/usage/'+EXAM).then(u=>{S.usage=u;if(S.view==='tests')render()}).catch(()=>{})}
 function viewIntro(){
   const run=S.run;const k=nextSection(run);const done=run.sections.filter(x=>run.results[x]);
   const inProg=k&&started(run,k)&&!run.state[k].submitted;
@@ -500,6 +506,12 @@ function viewMarking(){
   return '<div class="panel"><p class="eyebrow">'+SK[k]+'</p>'+(S.markErr?'<h2>La correction n’a pas abouti</h2><p>'+h(S.markErr)+' Vos réponses sont enregistrées.</p><div class="row"><button class="btn primary" data-act="remark">Relancer la correction</button><button class="btn" data-act="leave">Enregistrer et quitter</button></div>':'<div class="row"><span class="spinner"></span><h2>Correction en cours</h2></div><p class="muted">Correction selon les critères du TEF Canada. Cela prend généralement moins d’une minute.</p>')+'</div>';
 }
 function timerNow(){const run=S.run;if(!run)return'--:--';const st=run.state[S.sec]||{};return st.deadline?fmtTime(st.deadline-Date.now()):'--:--'}
+function reportBox(k,i){
+  const key=k+i;const st=(S.reports||{})[key];
+  if(st==='sent')return '<p class="small muted">Merci, votre signalement a été envoyé.</p>';
+  if(st!=='open')return '<p class="small"><button class="link" data-act="report-open" data-k="'+k+'" data-i="'+i+'">Signaler un problème dans cette partie</button></p>';
+  return '<div class="row small"><label for="rep-'+key+'" class="muted">Quel est le problème ?</label><select id="rep-'+key+'"><option>Mauvaise réponse dans le corrigé</option><option>Question ambiguë</option><option>Le texte ou l’audio ne correspond pas aux questions</option><option>Autre</option></select><button class="btn sm" data-act="report-send" data-k="'+k+'" data-i="'+i+'">Envoyer</button></div>';
+}
 function examBar(k,extra,noSubmit){
   return '<div class="exambar"><div><div class="small" style="opacity:.75">'+h(S.run.label)+'</div><b>'+SK[k]+'</b>'+(extra||'')+'</div><div class="row"><span class="timer mono" id="timer">'+timerNow()+'</span>'+(noSubmit?'':'<button class="btn sm" data-act="ask-submit">Terminer l’épreuve</button>')+'</div></div>'+
   (S.confirmSubmit?'<div class="banner">Terminer '+SK[k].toLowerCase()+' maintenant ? Vous ne pourrez pas y revenir. '+unanswered(k)+' <button class="btn sm primary" data-act="submit">Terminer</button> <button class="btn sm" data-act="cancel-submit">Continuer</button></div>':'');
@@ -519,7 +531,7 @@ function viewReading(){
   const tabs='<div class="tabs" role="tablist">'+RPART.map((p,i)=>'<button role="tab" data-tab="'+i+'" aria-selected="'+(S.tab===i)+'">'+(i+1)+' · '+p.name+'</button>').join('')+'</div>';
   if(!part)return examBar('R')+tabs+waitPanel('La partie '+(S.tab+1));
   return examBar('R')+tabs+part.docs.map(d=>'<div class="split"><div class="panel">'+(d.kind?'<span class="dockind">'+h(d.kind)+'</span>':'')+(d.heading?'<h3>'+h(d.heading)+'</h3>':'')+'<div class="doc">'+h(d.body)+'</div></div><div class="panel">'+renderQs(d.questions,run.answers.R)+'</div></div>').join('')+
-  '<div class="row">'+(S.tab<3?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Partie suivante</button>':'<button class="btn primary" data-act="ask-submit">Terminer la compréhension écrite</button>')+'</div>';
+  reportBox('R',S.tab)+'<div class="row">'+(S.tab<3?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Partie suivante</button>':'<button class="btn primary" data-act="ask-submit">Terminer la compréhension écrite</button>')+'</div>';
 }
 function viewListening(){
   const run=S.run;const pos=run.state.L.pos;const{part,doc}=curDoc(run);
@@ -529,7 +541,7 @@ function viewListening(){
   const player=(TTS||ctx.ent(EXAM).tts)?'<div class="player"><button class="btn primary" data-act="play" '+(st?'disabled':'')+'>'+(st==='done'?'Écouté':st==='playing'?'Écoute en cours…':'Écouter le document')+'</button><div class="meter" aria-hidden="true"><i id="lmeter" style="width:'+(st==='done'?100:0)+'%"></i></div><span class="small muted" id="lstatus">Une seule écoute</span></div>'
     :'<div class="player"><button class="btn primary" data-act="readonce" '+(st?'disabled':'')+'>'+(st?'Texte affiché':'Afficher le texte une fois')+'</button><span class="small muted">Aucune voix française : le texte s’affiche une fois, puis disparaît.</span></div><div id="readonce" class="panel flat" hidden></div>';
   const last=pos.p===3&&pos.d===part.docs.length-1;
-  return examBar('L','',true)+head+'<div class="panel"><p class="eyebrow">Document '+(pos.d+1)+' sur '+part.docs.length+'</p><p><b>'+h(doc.context)+'</b></p>'+player+renderQs(doc.questions,run.answers.L)+
+  return examBar('L','',true)+head+'<div class="panel"><p class="eyebrow">Document '+(pos.d+1)+' sur '+part.docs.length+'</p><p><b>'+h(doc.context)+'</b></p>'+player+renderQs(doc.questions,run.answers.L)+reportBox('L',pos.p)+
   '<div class="row"><button class="btn '+(last?'primary':'dark')+'" data-act="nextdoc" '+(st==='playing'?'disabled':'')+'>'+(last?'Terminer la compréhension orale':'Document suivant')+'</button><span class="small muted">Pas de retour en arrière.</span></div></div>';
 }
 function viewWriting(){
@@ -626,11 +638,13 @@ function viewLesson(){
 document.addEventListener('click',async e=>{
   if(!ACTIVE)return;
   const t=e.target.closest('[data-nav],[data-act],[data-tab],[data-unit],[data-report]');if(!t)return;
-  if(t.dataset.nav){if(S.run&&['intro','section','marking'].includes(S.view))return;S.view=t.dataset.nav;S.confirmReset=false;render();window.scrollTo(0,0);return}
+  if(t.dataset.nav){if(S.run&&['intro','section','marking'].includes(S.view))return;S.view=t.dataset.nav;if(S.view==='tests')loadUsage();S.confirmReset=false;render();window.scrollTo(0,0);return}
   if(t.dataset.unit){openUnit(t.dataset.unit);return}
   if(t.dataset.report){S.view='report';S.reportRun=null;render();try{S.reportRun=await Store.getAttempt(t.dataset.report)}catch(err){}if(!S.reportRun)toast('Ce résultat n’a pas pu être chargé.');render();window.scrollTo(0,0);return}
   if(t.dataset.tab!=null&&S.view==='section'){S.tab=Number(t.dataset.tab);saveRun(S.run);render();window.scrollTo(0,0);return}
   const a=t.dataset.act;
+  if(a==='report-open'){S.reports=S.reports||{};S.reports[t.dataset.k+t.dataset.i]='open';render();return}
+  if(a==='report-send'){const k=t.dataset.k,i=t.dataset.i;const reason=($('#rep-'+k+i)||{}).value||'';S.reports[k+i]='sent';render();try{await saveRunNow(S.run);await ctx.api('POST','/api/pool/report',{exam:EXAM,attemptId:S.run.id,k,i:Number(i),reason})}catch(err){}return}
   if(a==='placement'){await startRun(newRun('placement',ORDER.slice(),'exam','Test de positionnement'));return}
   if(a==='mock'){const m=S.mock;const secs=m.type==='full'?ORDER.slice():[m.type];await startRun(newRun('mock',secs,m.diff,(m.type==='full'?'Test blanc complet':'Test blanc · '+SK[m.type])+' · '+(m.diff==='auto'?'auto':DIFF[m.diff].label)));return}
   if(a==='checkpoint'){const u=S.lessonUnit;await startRun(newRun('mock',[u.skill],'auto','Test d’étape · '+u.title,u.id));return}

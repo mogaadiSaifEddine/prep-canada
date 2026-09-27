@@ -23,12 +23,26 @@ Plans are Free, Solo and Duo, paid in TND through Konnect, Flouci or manual D17/
 **Free plan:** one placement test per exam, one mock test a month, and device voices for Listening.
 **Solo (one exam) and Duo (both exams):** unlimited mocks (fair use: 6 per day), the course, and studio voices.
 
+## Caching and cost control
+
+- **Shared test pool:** each test part is written once, then reused by other learners at the same difficulty.
+  - Nobody gets a part they have already seen.
+  - The pool prefers parts that cover a learner's weakest question types and topics they haven't had.
+  - While a bucket is small, some requests still write new content so the pool keeps growing. The rates are set by `POOL_FRESH_SMALL`, `POOL_FRESH_MID`, `POOL_FRESH_BIG`, `POOL_SMALL` and `POOL_MID`.
+  - Parts reported by 3 learners are retired automatically (`POOL_RETIRE_REPORTS`).
+  - Admin › Test pool can fill and voice the pool before launch.
+- **Lesson pool:** lessons are shared by unit title and level. The course generator is steered towards unit titles that already exist.
+- **Audio cache:** every spoken clip is stored once as MP3, keyed by a hash of exactly what is said, and shared across learners. The cache size is capped by `AUDIO_CACHE_MAX_MB` (default 400); the least-played clips are pruned first.
+- **Limits:** paid plans get `PAID_SECTIONS_PER_MONTH` test sections per exam (default 60; a full test uses 4) and at most 6 new tests a day.
+- **Cost tracking:** every AI call and cache hit is logged with an estimated cost. Admin shows monthly spend, cost per paying user and cache hit rates. Update `AI_PRICES_JSON` when Google changes prices (Gemini 3.8 doubles on 1 Jan 2027). `USD_TND` sets the exchange rate used on the admin page.
+
 ## Run locally
 
 ```bash
 npm install
 ./scripts/devserver.sh        # mock AI + mock payments on http://localhost:3100
 NODE_PATH=$(npm root -g) node test/e2e.cjs   # full browser test (needs Playwright)
+POOL_FRESH_SMALL=0 ./scripts/devserver.sh && node test/pool.mjs   # pool + audio cache test
 ```
 
 For real AI locally: `DATABASE_URL=pglite:./.data GEMINI_API_KEY=... ADMIN_EMAILS=you@x.com node server.js`

@@ -105,8 +105,8 @@ function fixGroups(groups,start){
 }
 function fixContent(j,data){
   if(!data||typeof data!=='object')throw{code:'invalid_json'};
-  if(j.k==='R'){const groups=fixGroups(data.groups,RSEC[j.i].start);if(!groups.length||!Array.isArray(data.texts))throw{code:'invalid_json'};return{title:String(data.title||'Reading'),texts:data.texts.map(t=>({label:String(t.label||''),heading:String(t.heading||''),body:String(t.body||'')})),groups}}
-  if(j.k==='L'){const groups=fixGroups(data.groups,LPART[j.i].start);if(!groups.length||!Array.isArray(data.script))throw{code:'invalid_json'};return{title:String(data.title||'Listening'),context:String(data.context||''),speakers:toArr(data.speakers),script:data.script.map(l=>({speaker:String(l.speaker||''),text:String(l.text||'')})).filter(l=>l.text),groups}}
+  if(j.k==='R'){const groups=fixGroups(data.groups,RSEC[j.i].start);if(!groups.length||!Array.isArray(data.texts))throw{code:'invalid_json'};return{_pool:data._pool,title:String(data.title||'Reading'),texts:data.texts.map(t=>({label:String(t.label||''),heading:String(t.heading||''),body:String(t.body||'')})),groups}}
+  if(j.k==='L'){const groups=fixGroups(data.groups,LPART[j.i].start);if(!groups.length||!Array.isArray(data.script))throw{code:'invalid_json'};return{_pool:data._pool,title:String(data.title||'Listening'),context:String(data.context||''),speakers:toArr(data.speakers),script:data.script.map(l=>({speaker:String(l.speaker||''),text:String(l.text||'')})).filter(l=>l.text),groups}}
   if(j.k==='W'){if(!data.task1||!data.task2)throw{code:'invalid_json'};return data}
   if(j.k==='S'){if(!Array.isArray(data.part1)||!data.part2||!Array.isArray(data.part3))throw{code:'invalid_json'};return data}
 }
@@ -493,13 +493,19 @@ function viewTests(){
   const diffs=[['auto','Auto','Matches your current band per skill'],['foundation','Foundation',''],['exam','Exam standard',''],['advanced','Advanced','']];
   return (!p.placementDone&&!busy?'<div class="banner">Take the placement test first so mock tests can match your level. <button class="btn sm primary" data-act="placement" '+(SAMPLE?'':'disabled')+'>Start placement test</button></div>':'')+
   (busy?'<div class="banner">A test is in progress. <button class="btn sm primary" data-act="resume">Resume it</button></div>':'')+
-  (ctx.ent(EXAM).paid?'':'<div class="banner small">Free plan: 1 mock test per month and 1 placement test. <a href="#/plans">See plans</a> for unlimited tests and natural voices.</div>')+'<div class="panel"><p class="eyebrow">Mock test generator</p><h2>Build a new mock test</h2><p class="muted" style="max-width:64ch">Every mock is newly written. Auto difficulty follows your latest band in each skill, and Listening and Reading mocks lean on the question types you miss most.'+(recommend&&recommend.gap>0?' Your biggest gap right now is <b>'+SK[recommend.k]+'</b> ('+fmtBand(p.bands[recommend.k])+' → '+TARGET[recommend.k].toFixed(1)+').':'')+'</p>'+
+  (ctx.ent(EXAM).paid?usageLine():'<div class="banner small">Free plan: 1 mock test per month and 1 placement test. <a href="#/plans">See plans</a> for unlimited tests and natural voices.</div>')+'<div class="panel"><p class="eyebrow">Mock test generator</p><h2>Build a new mock test</h2><p class="muted" style="max-width:64ch">Every mock is newly written. Auto difficulty follows your latest band in each skill, and Listening and Reading mocks lean on the question types you miss most.'+(recommend&&recommend.gap>0?' Your biggest gap right now is <b>'+SK[recommend.k]+'</b> ('+fmtBand(p.bands[recommend.k])+' → '+TARGET[recommend.k].toFixed(1)+').':'')+'</p>'+
   '<div class="stack"><span class="eyebrow">Test</span><div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">'+types.map(([v,l,d])=>'<label class="choice"><input type="radio" name="mtype" value="'+v+'" '+(sel.type===v?'checked':'')+'><span class="mono">'+(v==='full'?'4':v)+'</span><span><b>'+l+'</b><br><span class="small muted">'+d+'</span></span></label>').join('')+'</div></div>'+
   '<div class="stack"><span class="eyebrow">Difficulty</span><div class="opts">'+diffs.map(([v,l])=>'<label class="opt"><input type="radio" name="mdiff" value="'+v+'" '+(sel.diff===v?'checked':'')+'><span>'+l+'</span></label>').join('')+'</div><p class="small muted">'+(sel.diff==='auto'?'Auto sets '+(sel.type==='full'?ORDER:[sel.type]).map(k=>SK[k]+': '+DIFF[autoDiff(k)].label).join(' · '):'Every section at '+DIFF[sel.diff].label+': '+DIFF[sel.diff].text+'.')+'</p></div>'+
   '<div class="row"><button class="btn primary" data-act="mock" '+(busy||!SAMPLE?'disabled':'')+'>Create and start</button><span class="small muted">Content is written while you read the instructions; each part takes up to a minute.</span></div></div>'+
   '<div class="panel flat"><p class="eyebrow">Real recordings</p><h3>Practise with a real IELTS recording</h3><p class="muted" style="max-width:64ch">Load a recording from a Cambridge IELTS book or official practice test (like the MP3s you have), answer on the sheet while it plays once, then paste the answer key to get your score and band. Questions come from the book, so have the question paper open.</p><div class="row"><button class="btn dark" data-nav="real">Open real-recording mode</button></div></div>'+
   voicePanel();
 }
+function usageLine(){
+  const u=S.usage;if(!u||!u.sectionsLimit)return '';
+  const left=Math.max(0,u.sectionsLimit-u.sectionsUsed);
+  return '<div class="banner small'+(left<8?'':' good')+'">This month: '+u.sectionsUsed+' of '+u.sectionsLimit+' test sections used ('+left+' left). A full test uses 4, a single-skill test uses 1. Resets on the 1st.</div>';
+}
+function loadUsage(){ctx.api('GET','/api/usage/'+EXAM).then(u=>{S.usage=u;if(S.view==='tests')render()}).catch(()=>{})}
 function voicePanel(){
   if(ctx.ent(EXAM).tts)return '<div class="panel flat"><h3>Voices</h3><p class="small muted" style="max-width:68ch">Your plan reads Listening tests and speaking questions with natural studio voices in British accents. If they can\'t load, the app falls back to your device\'s voices.</p><div class="row"><button class="btn sm" data-act="voicetest">Hear a sample</button></div></div>';
   if(!TTS)return '<div class="panel flat"><h3>Voices</h3><p class="muted">This browser has no speech voices, so generated Listening tests show the script once instead. Upgrade for natural studio voices, or use Chrome or Edge.</p></div>';
@@ -584,6 +590,12 @@ function viewMarking(){
   return '<div class="panel"><p class="eyebrow">'+SK[k]+'</p>'+(S.markErr?'<h2>Marking didn\'t finish</h2><p>'+h(S.markErr)+' Your answers are saved.</p><div class="row"><button class="btn primary" data-act="remark">Try marking again</button><button class="btn" data-act="leave">Save and exit</button></div>':'<div class="row"><span class="spinner"></span><h2>Marking your '+SK[k].toLowerCase()+'</h2></div><p class="muted">An examiner-style marking against the four official criteria. This usually takes under a minute.</p>')+'</div>';
 }
 function timerNow(){const run=S.run;if(!run)return'--:--';const k=S.sec;const st=run.state[k]||{};let dl=st.deadline;if(k==='S'){const step=speakSteps(run.content.S[0])[st.pos];dl=step&&(step.phase==='prep'||step.phase==='talk')?st.stepDeadline:st.partDeadline}return dl?fmtTime(dl-Date.now()):'--:--'}
+function reportBox(k,i){
+  const key=k+i;const st=(S.reports||{})[key];
+  if(st==='sent')return '<p class="small muted">Thanks, your report was sent.</p>';
+  if(st!=='open')return '<p class="small"><button class="link" data-act="report-open" data-k="'+k+'" data-i="'+i+'">Report a problem with this part</button></p>';
+  return '<div class="row small"><label for="rep-'+key+'" class="muted">What\'s wrong?</label><select id="rep-'+key+'"><option>Wrong answer key</option><option>Question unclear or ambiguous</option><option>Text or audio doesn\'t match the questions</option><option>Other</option></select><button class="btn sm" data-act="report-send" data-k="'+k+'" data-i="'+i+'">Send</button></div>';
+}
 function examBar(k,extra){
   return '<div class="exambar"><div><div class="small" style="opacity:.75">'+h(S.run.label)+'</div><b>'+SK[k]+'</b>'+(extra||'')+'</div><div class="row"><span class="timer mono" id="timer" aria-live="off">'+timerNow()+'</span>'+(k==='S'?'':'<button class="btn sm" data-act="ask-submit">Submit '+SK[k]+'</button>')+'</div></div>'+
   (S.confirmSubmit?'<div class="banner">Submit '+SK[k]+' now? You can\'t come back to it. '+unansweredNote(k)+' <button class="btn sm primary" data-act="submit">Submit</button> <button class="btn sm" data-act="cancel-submit">Keep working</button></div>':'');
@@ -616,7 +628,7 @@ function viewReading(){
   if(!sec)return examBar('R')+tabs(3,'Section')+waitPanel('Section');
   const text=sec.texts.map(t=>'<div><h3>'+h(t.heading)+'</h3>'+String(t.body).split(/\n\s*\n/).map(p=>{const m=p.match(/^\s*([A-H])[\).:\s]\s*/);return '<p>'+(m?'<span class="plabel">'+m[1]+'</span>'+h(p.slice(m[0].length)):h(p))+'</p>'}).join('')+'</div>').join('<hr style="border:0;border-top:1px solid var(--line);margin:14px 0">');
   return examBar('R')+'<div class="row between">'+tabs(3,'Section')+'<span class="small muted">Questions '+RSEC[S.tab].start+'–'+(RSEC[S.tab].start+RSEC[S.tab].count-1)+'</span></div>'+
-  '<div class="split"><div class="panel textcol"><div class="passage">'+text+'</div></div><div class="panel">'+renderGroups('R',sec.groups,run.answers.R)+'<div class="row">'+(S.tab<2?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Next section</button>':'<button class="btn primary" data-act="ask-submit">Submit Reading</button>')+'</div></div></div>';
+  '<div class="split"><div class="panel textcol"><div class="passage">'+text+'</div></div><div class="panel">'+renderGroups('R',sec.groups,run.answers.R)+reportBox('R',S.tab)+'<div class="row">'+(S.tab<2?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Next section</button>':'<button class="btn primary" data-act="ask-submit">Submit Reading</button>')+'</div></div></div>';
 }
 function viewListening(){
   const run=S.run;const part=run.content.L[S.tab];
@@ -627,7 +639,7 @@ function viewListening(){
   if(TTS||ctx.ent(EXAM).tts){player='<div class="player"><button class="btn primary" data-act="play" '+(st?'disabled':'')+'>'+(st==='done'?'Played':st==='playing'?'Playing…':'Play Part '+(S.tab+1))+'</button><div class="meter" aria-hidden="true"><i id="lmeter" style="width:'+(st==='done'?100:0)+'%"></i></div><span class="small muted" id="lstatus">'+(st==='done'?'Finished':st?'Playing once only':'Plays once, with 30 s to read the questions first, as in the exam.')+'</span></div>'}
   else{player='<div class="player"><button class="btn primary" data-act="readonce" '+(st?'disabled':'')+'>'+(st?'Script shown':'Show script once')+'</button><span class="small muted">No speech voice in this browser: the script shows once, then hides.</span></div><div id="readonce" class="panel flat" hidden></div>'}
   return examBar('L')+'<div class="row between">'+tabs(4,'Part')+'<span class="small muted">Questions '+LPART[S.tab].start+'–'+(LPART[S.tab].start+9)+'</span></div>'+
-  '<div class="panel"><p class="muted">'+h(part.context)+'</p>'+player+renderGroups('L',part.groups,run.answers.L)+'<div class="row">'+(S.tab<3?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Next part</button>':'<button class="btn primary" data-act="ask-submit">Submit Listening</button>')+'</div></div>';
+  '<div class="panel"><p class="muted">'+h(part.context)+'</p>'+player+renderGroups('L',part.groups,run.answers.L)+reportBox('L',S.tab)+'<div class="row">'+(S.tab<3?'<button class="btn dark" data-tab="'+(S.tab+1)+'">Next part</button>':'<button class="btn primary" data-act="ask-submit">Submit Listening</button>')+'</div></div>';
 }
 function waitPanel(w){const g=S.gen[S.sec+S.tab];return '<div class="panel" id="waitpart">'+(g&&g.err?'<p class="banner bad">'+h(g.err)+'</p><button class="btn" data-act="regen">Try again</button>':'<div class="row"><span class="spinner"></span><b>'+w+' '+(S.tab+1)+' is still being written.</b></div><p class="muted">It appears here as soon as it\'s ready. Keep working on the earlier '+w.toLowerCase()+'s meanwhile.</p>')+'</div>'}
 function viewWriting(){
@@ -635,7 +647,7 @@ function viewWriting(){
   const task=t===0?'<p class="eyebrow">Task 1 · '+h(c.task1.tone)+' letter · about 20 minutes</p><p>'+h(c.task1.situation)+'</p><p>'+h(c.task1.instruction)+'</p><ul>'+toArr(c.task1.bullets).map(b=>'<li>'+h(b)+'</li>').join('')+'</ul><p class="small muted">Write at least 150 words. You do NOT need to write any addresses. Begin your letter: <b>'+h(c.task1.salutation||'Dear …,')+'</b></p>'
   :'<p class="eyebrow">Task 2 · essay · about 40 minutes</p><p>Write about the following topic:</p><p style="font-weight:600;max-width:64ch">'+h(c.task2.prompt)+'</p><p class="small muted">Write at least 250 words.</p>';
   const val=t===0?a.t1:a.t2;const min=t===0?150:250;const wc=words(val);
-  return examBar('W')+tabs(2,'Task')+'<div class="split"><div class="panel textcol">'+task+'</div><div class="panel"><label for="wtext" class="eyebrow">Your answer</label><textarea id="wtext" class="big" data-w="'+(t===0?'t1':'t2')+'" spellcheck="false">'+h(val)+'</textarea><div class="row between"><span class="wc'+(wc>=min?' ok':'')+'" id="wc">'+wc+' words</span>'+(t===0?'<button class="btn dark" data-tab="1">Go to Task 2</button>':'<button class="btn primary" data-act="ask-submit">Submit Writing</button>')+'</div></div></div>';
+  return examBar('W')+tabs(2,'Task')+'<div class="split"><div class="panel textcol">'+task+reportBox('W',0)+'</div><div class="panel"><label for="wtext" class="eyebrow">Your answer</label><textarea id="wtext" class="big" data-w="'+(t===0?'t1':'t2')+'" spellcheck="false">'+h(val)+'</textarea><div class="row between"><span class="wc'+(wc>=min?' ok':'')+'" id="wc">'+wc+' words</span>'+(t===0?'<button class="btn dark" data-tab="1">Go to Task 2</button>':'<button class="btn primary" data-act="ask-submit">Submit Writing</button>')+'</div></div></div>';
 }
 function viewSpeaking(){
   const run=S.run;const c=run.content.S[0];const steps=speakSteps(c);const st=run.state.S;const step=steps[st.pos];if(!step)return'';
@@ -742,11 +754,13 @@ function viewLesson(){
 document.addEventListener('click',async e=>{
   if(!ACTIVE)return;
   const t=e.target.closest('[data-nav],[data-act],[data-tab],[data-unit],[data-report]');if(!t)return;
-  if(t.dataset.nav){if(S.run&&['intro','section','marking'].includes(S.view))return;S.view=t.dataset.nav;S.confirmReset=false;render();window.scrollTo(0,0);return}
+  if(t.dataset.nav){if(S.run&&['intro','section','marking'].includes(S.view))return;S.view=t.dataset.nav;if(S.view==='tests')loadUsage();S.confirmReset=false;render();window.scrollTo(0,0);return}
   if(t.dataset.unit){openUnit(t.dataset.unit);return}
   if(t.dataset.report){const id=t.dataset.report;S.view='report';S.reportRun=null;render();try{S.reportRun=await Store.getAttempt(id)}catch(err){}if(!S.reportRun)toast('That result could not be loaded.');render();window.scrollTo(0,0);return}
   if(t.dataset.tab!=null&&S.view==='section'){S.tab=Number(t.dataset.tab);saveRun(S.run);render();window.scrollTo(0,0);return}
   const a=t.dataset.act;
+  if(a==='report-open'){S.reports=S.reports||{};S.reports[t.dataset.k+t.dataset.i]='open';render();return}
+  if(a==='report-send'){const k=t.dataset.k,i=t.dataset.i;const reason=($('#rep-'+k+i)||{}).value||'';S.reports[k+i]='sent';render();try{await saveRunNow(S.run);await ctx.api('POST','/api/pool/report',{exam:EXAM,attemptId:S.run.id,k,i:Number(i),reason})}catch(err){}return}
   if(a==='realplay'){realAudioPlay();return}
   if(a==='realmark'){const R=S.real;R.key=($('#rkey')||{}).value||'';R.transcript=($('#rtrans')||{}).value||'';realMark();return}
   if(a==='realexplain'){S.real.transcript=($('#rtrans')||{}).value||S.real.transcript;realExplain();return}

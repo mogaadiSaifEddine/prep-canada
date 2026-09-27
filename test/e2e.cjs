@@ -106,7 +106,7 @@ require('fs').mkdirSync(shots, { recursive: true });
     await click('[data-act=mock]'); await page.waitForSelector('[data-act=start]:not([disabled])', { timeout: 20000 });
     await click('[data-act=start]'); await click('[data-act=speakstart]'); await page.waitForSelector('.msg.ex');
     await page.fill('#spk', 'Bonjour, je voudrais savoir le prix des cours, s’il vous plaît.');
-    await click('[data-act=send]'); await page.waitForFunction(() => document.querySelectorAll('.msg.ex').length >= 2, null, { timeout: 20000 });
+    await click('[data-act=send]'); await page.waitForFunction(() => [...document.querySelectorAll('.msg.ex')].filter((m) => !m.querySelector('.spinner')).length >= 2, null, { timeout: 20000 });
     await shot('16-tef-speaking');
     await click('[data-act=endA]'); await click('[data-act=speakstart]');
     await page.fill('#spk', 'Allez, viens avec moi, c’est une super occasion !'); await click('[data-act=send]');

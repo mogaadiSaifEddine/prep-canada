@@ -324,6 +324,9 @@ async function viewAdmin() {
   if (!APP.me.isAdmin) { go('/'); return; }
   page('admin', '<div><p class="eyebrow">Admin</p><h1>Overview</h1></div><div class="kpis" id="kpis"><span class="spinner"></span></div>' +
     '<div class="panel"><div class="row between"><h2>Payments</h2><select id="adm-pst"><option value="review">Waiting for review</option><option value="pending">Pending (online)</option><option value="paid">Paid</option><option value="all">All</option></select></div><div id="adm-pays"><span class="spinner"></span></div></div>' +
+    '<div class="panel"><div class="row between"><h2>AI costs and cache</h2><span class="small muted">This month</span></div><div id="adm-costs"><span class="spinner"></span></div></div>' +
+    '<div class="panel"><h2>Test pool</h2><p class="small muted" style="max-width:70ch">Tests are written once and reused by other learners at the same level. Nobody gets the same part twice. Fill the pool before launch so the first users get instant tests. Listening parts can also be voiced in advance.</p>' +
+    '<form id="f-fill" class="row"><select id="fl-exam"><option value="ielts">IELTS</option><option value="tef">TEF</option></select><select id="fl-k"><option value="all">All sections</option><option value="L">Listening</option><option value="R">Reading</option><option value="W">Writing</option><option value="S">Speaking</option></select><select id="fl-diff"><option value="exam">Exam standard</option><option value="foundation">Foundation</option><option value="advanced">Advanced</option></select><label class="small">Sets <input type="text" id="fl-n" value="3" inputmode="numeric" style="width:56px"></label><label class="check small" style="grid-template-columns:22px auto"><input type="checkbox" id="fl-audio"><span>Voice Listening now</span></label><button class="btn sm primary" type="submit">Generate</button></form><p class="small" id="fl-status"></p><div id="adm-pool"></div></div>' +
     '<div class="panel"><h2>Users</h2><form id="f-users" class="row"><input type="search" id="adm-q" placeholder="Email or name" style="flex:1 1 220px"><button class="btn sm" type="submit">Search</button></form><div id="adm-users"></div></div>');
   loadAdmin();
 }
@@ -333,7 +336,53 @@ async function loadAdmin() {
     const act = s.active.reduce((a, x) => a + x.n, 0);
     $('#kpis').innerHTML = [['Users', s.users], ['Active paid plans', act], ['Revenue this month', fmtTND(s.revenueMonth)], ['Payments to review', s.toReview], ['Tests started (7 days)', s.testsWeek]].map(([l, v]) => '<div class="panel kpi"><span class="small muted">' + l + '</span><b>' + h(v) + '</b></div>').join('');
   } catch (e) { handleError(e); }
-  loadAdminPays(); loadAdminUsers();
+  loadAdminPays(); loadAdminUsers(); loadAdminCosts();
+}
+async function loadAdminCosts() {
+  try {
+    const r = await api('GET', '/api/admin/costs'); const fx = r.usdToTnd || 3.1;
+    const tnd = (usd) => (usd * fx).toFixed(2) + ' TND';
+    const rate = (c, n) => (n ? Math.round(100 * c / n) + '%' : '–');
+    const perUser = r.paidUsers ? tnd(r.month.usd / r.paidUsers) : '–';
+    const task = (name) => r.byTask.find((x) => x.task === name) || { calls: 0, cached: 0 };
+    const genCalls = r.byTask.filter((x) => x.task === 'gen').reduce((a, x) => ({ calls: a.calls + x.calls, cached: a.cached + x.cached }), { calls: 0, cached: 0 });
+    const t = task('tts');
+    $('#adm-costs').innerHTML = '<div class="kpis">' + [['AI spend', tnd(r.month.usd) + '<br><span class="small muted">$' + r.month.usd.toFixed(2) + '</span>'], ['Per paying user', perUser], ['Tests from the pool', rate(genCalls.cached, genCalls.calls)], ['Voices from cache', rate(t.cached, t.calls)], ['Audio cache', r.audio.items + ' clips · ' + (r.audio.mb < 10 ? r.audio.mb.toFixed(1) : r.audio.mb.toFixed(0)) + ' MB']].map(([l, v]) => '<div class="panel kpi"><span class="small muted">' + l + '</span><b style="font-size:1.35rem">' + v + '</b></div>').join('') + '</div>' +
+      '<div class="tablewrap"><table><thead><tr><th>Task</th><th class="mono">Calls</th><th class="mono">From cache</th><th class="mono">Cost</th></tr></thead><tbody>' + r.byTask.map((x) => '<tr><td>' + h(x.task) + '</td><td class="mono">' + x.calls + '</td><td class="mono">' + rate(x.cached, x.calls) + '</td><td class="mono">' + tnd(x.usd) + '</td></tr>').join('') + '</tbody></table></div>' +
+      (r.top.length ? '<details><summary>Highest-cost users this month</summary><div class="tablewrap"><table><tbody>' + r.top.map((x) => '<tr><td>' + h(x.email) + '</td><td class="mono">' + tnd(x.usd) + '</td></tr>').join('') + '</tbody></table></div></details>' : '');
+    const P = r.pool; const sk = { L: 'Listening', R: 'Reading', W: 'Writing', S: 'Speaking' };
+    $('#adm-pool').innerHTML = '<div class="tablewrap"><table><thead><tr><th>Exam</th><th>Section</th><th>Level</th><th class="mono">Items</th><th class="mono">Times used</th><th class="mono">Retired</th></tr></thead><tbody>' + (P.buckets.length ? P.buckets.map((b) => '<tr><td>' + b.exam.toUpperCase() + '</td><td>' + sk[b.k] + '</td><td>' + h(b.diff) + '</td><td class="mono">' + b.items + '</td><td class="mono">' + b.uses + '</td><td class="mono">' + b.retired + '</td></tr>').join('') : '<tr><td colspan="6" class="muted">Empty. Generate a few sets, or it fills up as people take tests.</td></tr>') + '</tbody></table></div>' +
+      '<p class="small muted">Lessons in the pool: ' + P.lessons.items + ' (used ' + P.lessons.uses + ' times).</p>' +
+      (P.reported.length ? '<h3>Reported by learners</h3><div class="tablewrap"><table><thead><tr><th>Part</th><th>Topic</th><th class="mono">Reports</th><th>Reasons</th><th></th></tr></thead><tbody>' + P.reported.map((x) => '<tr><td>' + x.exam.toUpperCase() + ' ' + sk[x.k] + ' ' + (x.i + 1) + ' · ' + h(x.diff) + '</td><td>' + h(x.topic) + '</td><td class="mono">' + x.reports + '</td><td class="small">' + h(x.reasons || '') + '</td><td><button class="btn sm" data-sa="adm-retire" data-id="' + h(x.id) + '" data-v="' + (x.retired ? '0' : '1') + '">' + (x.retired ? 'Restore' : 'Retire') + '</button></td></tr>').join('') + '</tbody></table></div>' : '');
+  } catch (e) { handleError(e); }
+}
+async function fillPool() {
+  const exam = $('#fl-exam').value; const kSel = $('#fl-k').value; const diff = $('#fl-diff').value;
+  const sets = Math.max(1, Math.min(20, Number($('#fl-n').value) || 1)); const voice = $('#fl-audio').checked;
+  const parts = { ielts: { L: 4, R: 3, W: 1, S: 1 }, tef: { L: 4, R: 4, W: 1, S: 1 } }[exam];
+  const jobs = [];
+  for (let n = 0; n < sets; n++) for (const k of (kSel === 'all' ? ['L', 'R', 'W', 'S'] : [kSel])) for (let i = 0; i < parts[k]; i++) jobs.push({ k, i });
+  const st = $('#fl-status'); let done = 0, failed = 0;
+  APP.filling = true;
+  for (const j of jobs) {
+    if (!APP.filling) break;
+    if (st) st.textContent = 'Writing ' + (done + 1) + ' of ' + jobs.length + ' (' + j.k + ' part ' + (j.i + 1) + ')… keep this page open.';
+    try {
+      const r = await api('POST', '/api/admin/pool/fill', { exam, k: j.k, i: j.i, diff });
+      if (!r.valid) failed++;
+      if (voice && r.valid && j.k === 'L') {
+        for (let c = 0; c < 80; c++) {
+          if (st) st.textContent = 'Voicing Listening part ' + (j.i + 1) + ', clip ' + (c + 1) + '…';
+          const a = await api('POST', '/api/admin/pool/' + r.id + '/audio', { c });
+          if (a.done) break;
+        }
+      }
+    } catch (e) { failed++; if (e.code === 'rate_limited') await new Promise((res) => setTimeout(res, 20000)); }
+    done++;
+  }
+  APP.filling = false;
+  if (st) st.textContent = 'Done: ' + (done - failed) + ' added' + (failed ? ', ' + failed + ' failed quality checks or errors' : '') + '.';
+  loadAdminCosts();
 }
 async function loadAdminPays() {
   const st = ($('#adm-pst') || {}).value || 'review';
@@ -346,7 +395,7 @@ async function loadAdminUsers() {
   const qv = ($('#adm-q') || {}).value || '';
   try {
     const r = await api('GET', '/api/admin/users?q=' + encodeURIComponent(qv));
-    $('#adm-users').innerHTML = '<div class="tablewrap"><table><thead><tr><th>User</th><th>Joined</th><th>Plan</th><th>Change plan</th><th></th></tr></thead><tbody>' + r.users.map((u) => '<tr><td>' + h(u.name) + '<br><span class="small muted">' + h(u.email) + '</span>' + (u.disabled ? ' <span class="pill bad">disabled</span>' : '') + '</td><td class="mono">' + h(fmtDate(u.created_at)) + '</td><td>' + h(planLabel(u.active)) + (u.active.until ? '<br><span class="small muted">until ' + h(fmtDate(u.active.until)) + '</span>' : '') + '</td><td><div class="row"><select id="up-' + h(u.id) + '"><option value="free">Free</option><option value="solo:ielts">Solo IELTS</option><option value="solo:tef">Solo TEF</option><option value="duo">Duo</option></select><input type="text" id="ud-' + h(u.id) + '" value="30" inputmode="numeric" style="width:64px" aria-label="Days"><button class="btn sm" data-sa="adm-plan" data-id="' + h(u.id) + '">Apply</button></div></td><td><div class="row"><button class="btn sm" data-sa="adm-reset" data-id="' + h(u.id) + '">Reset password</button><button class="btn sm" data-sa="adm-disable" data-id="' + h(u.id) + '" data-v="' + (u.disabled ? '0' : '1') + '">' + (u.disabled ? 'Enable' : 'Disable') + '</button></div></td></tr>').join('') + '</tbody></table></div>';
+    $('#adm-users').innerHTML = '<div class="tablewrap"><table><thead><tr><th>User</th><th>Joined</th><th>Plan</th><th>Change plan</th><th></th></tr></thead><tbody>' + r.users.map((u) => '<tr><td>' + h(u.name) + '<br><span class="small muted">' + h(u.email) + '</span>' + (u.disabled ? ' <span class="pill bad">disabled</span>' : '') + '</td><td class="mono">' + h(fmtDate(u.created_at)) + '</td><td>' + h(planLabel(u.active)) + (u.active.until ? '<br><span class="small muted">until ' + h(fmtDate(u.active.until)) + '</span>' : '') + '</td><td><div class="row"><select id="up-' + h(u.id) + '">' + [['free', 'Free'], ['solo:ielts', 'Solo IELTS'], ['solo:tef', 'Solo TEF'], ['duo', 'Duo']].map(([v, l]) => '<option value="' + v + '"' + ((u.active.plan === 'solo' ? 'solo:' + u.active.exam : u.active.plan) === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select><input type="text" id="ud-' + h(u.id) + '" value="30" inputmode="numeric" style="width:64px" aria-label="Days"><button class="btn sm" data-sa="adm-plan" data-id="' + h(u.id) + '">Apply</button></div></td><td><div class="row"><button class="btn sm" data-sa="adm-reset" data-id="' + h(u.id) + '">Reset password</button><button class="btn sm" data-sa="adm-disable" data-id="' + h(u.id) + '" data-v="' + (u.disabled ? '0' : '1') + '">' + (u.disabled ? 'Enable' : 'Disable') + '</button></div></td></tr>').join('') + '</tbody></table></div>';
   } catch (e) { handleError(e); }
 }
 
@@ -435,6 +484,7 @@ document.addEventListener('submit', async (e) => {
     } else if (f.id === 'f-delete') {
       await api('DELETE', '/api/me', { password: $('#d-pass').value }); APP.me = null; APP.coaches = {}; toast('Your account was deleted.'); go('/');
     } else if (f.id === 'f-users') { await loadAdminUsers(); }
+    else if (f.id === 'f-fill') { if (!APP.filling) fillPool(); }
   } catch (err) {
     const target = { 'f-login': '#l-err', 'f-signup': '#s-err', 'f-reset': '#rs-err' }[f.id];
     if (target) showErr(target, err); else handleError(err);
@@ -462,6 +512,7 @@ document.addEventListener('click', async (e) => {
   if (a === 'logout') { try { await api('POST', '/api/auth/logout'); } catch { /* ignore */ } APP.me = null; APP.coaches = {}; go('/'); return; }
   if (a === 'receipt') { receipt(t.dataset.id); return; }
   if (a === 'adm-approve' || a === 'adm-reject') { try { await api('POST', '/api/admin/payments/' + t.dataset.id + '/' + (a === 'adm-approve' ? 'approve' : 'reject')); toast(a === 'adm-approve' ? 'Approved. The plan is active.' : 'Rejected.'); loadAdmin(); } catch (err) { handleError(err); } return; }
+  if (a === 'adm-retire') { try { await api('POST', '/api/admin/pool/' + t.dataset.id + '/retire', { retired: t.dataset.v === '1' }); loadAdminCosts(); } catch (err) { handleError(err); } return; }
   if (a === 'adm-plan') { const v = $('#up-' + t.dataset.id).value.split(':'); try { await api('POST', '/api/admin/users/' + t.dataset.id + '/plan', { plan: v[0], exam: v[1], days: Number($('#ud-' + t.dataset.id).value) }); toast('Plan updated.'); loadAdminUsers(); } catch (err) { handleError(err); } return; }
   if (a === 'adm-reset') { try { const r = await api('POST', '/api/admin/users/' + t.dataset.id + '/reset-password'); t.outerHTML = '<span class="small">Temporary password: <b class="mono" style="user-select:all">' + h(r.tempPassword) + '</b></span>'; } catch (err) { handleError(err); } return; }
   if (a === 'adm-disable') { try { await api('POST', '/api/admin/users/' + t.dataset.id + '/disable', { disabled: t.dataset.v === '1' }); loadAdminUsers(); } catch (err) { handleError(err); } }
