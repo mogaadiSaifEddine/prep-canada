@@ -1,6 +1,12 @@
 // Immigration path maps: list, finder and one map per path. Progress is saved to the account.
 import { PATHS, PAUSED, CHECKED, LINKS } from './paths.js';
 import { renderMap, miniTrail } from './pathmap.js';
+import { calculatorHtml, resultHtml, readForm, defaultProfile, fillFromTests, drawsHtml, estimateHtml, estimate, lastCutLine, recent } from './scoretools.js';
+import { crs } from './crs.js';
+
+const LS = 'pc_profile';
+const lsGet = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch { return null; } };
+const lsSet = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch { /* private mode */ } };
 
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -10,10 +16,22 @@ const TEF_NCLC = { L: [[546, 10], [503, 9], [462, 8], [434, 7], [393, 6], [352, 
 const lvl = (t, k, v) => { if (v == null) return null; for (const [m, n] of t[k]) if (v >= m) return n; return 3; };
 
 export function createPaths(ctx) {
-  const st = { journey: null, levels: null, finder: null, loaded: false, view: 'map', openStop: null, pathId: null };
+  const st = { journey: null, levels: null, finder: null, loaded: false, view: 'map', openStop: null, pathId: null, draws: null, drawsAt: 0, drawsCat: 'french', drawsGroup: 'ee' };
 
-  async function load() {
-    if (st.loaded || !ctx.me()) return;
+  async function loadDraws() {
+    if (st.draws && Date.now() - st.drawsAt < 10 * 60 * 1000) return st.draws;
+    try { const r = await fetch('/api/draws', { credentials: 'same-origin' }); if (r.ok) { st.draws = await r.json(); st.drawsAt = Date.now(); } } catch { /* offline: keep what we have */ }
+    return st.draws;
+  }
+  // The score profile: saved in the account, or on this device for visitors
+  const profile = () => (ctx.me() ? journey().profile : lsGet()) || null;
+  function setProfile(p) { if (ctx.me()) { journey().profile = p; save(); } else lsSet(p); }
+  function load() {
+    if (!ctx.me()) return Promise.resolve();
+    if (!st.loading) st.loading = doLoad().catch((e) => { st.loading = null; throw e; });
+    return st.loading;
+  }
+  async function doLoad() {
     st.loaded = true;
     const [j, ie, te] = await Promise.all([
       ctx.getDoc('journey', 'progress').catch(() => null),
@@ -26,6 +44,8 @@ export function createPaths(ctx) {
     if (ie && ie.bands && ['L', 'R', 'W', 'S'].every((k) => ie.bands[k] != null)) { const d = {}; ['L', 'R', 'W', 'S'].forEach((k) => { d[k] = lvl(IELTS_CLB, k, ie.bands[k]); }); lv.en = Math.min(...Object.values(d)); lv.enDetail = d; }
     if (te && te.scores && ['L', 'R', 'W', 'S'].every((k) => te.scores[k] != null)) { const d = {}; ['L', 'R', 'W', 'S'].forEach((k) => { d[k] = lvl(TEF_NCLC, k, te.scores[k]); }); lv.fr = Math.min(...Object.values(d)); lv.frDetail = d; }
     st.levels = lv;
+    // First time signed in: bring over a profile made as a visitor
+    if (!st.journey.profile) { const v = lsGet(); if (v) { st.journey.profile = v; save(); } }
   }
   const journey = () => st.journey || (st.journey = { progress: {}, pinned: null, finder: null });
   let saveT = null;
@@ -97,14 +117,31 @@ export function createPaths(ctx) {
       return '<a class="panel pathcard" href="#/paths/' + p.id + '" style="--pc:' + p.color + '"><div class="row between"><span class="tag">' + h(p.tag) + '</span>' + (r ? matchPill(r.score) : '') + '</div><h3>' + h(p.name) + '</h3><p class="small muted">' + h(p.summary) + '</p>' +
         (r ? '<p class="small"><b>For you:</b> ' + h(r.why) + '</p>' : '') +
         miniTrail(p, d) +
-        '<div class="row small muted" style="gap:14px"><span>' + p.stops.length + ' stops</span><span>' + h(p.time) + '</span>' + (d ? '<span><b>' + d + '/' + p.stops.length + ' done</b></span>' : '') + '</div></a>';
+        '<div class="row small muted" style="gap:14px"><span>' + p.stops.length + ' stops</span><span>' + h(p.time) + '</span>' + (d ? '<span><b>' + d + '/' + p.stops.length + ' done</b></span>' : '') + '</div>' +
+        (cutLine(p) ? '<div class="cutline small"><span class="mono">' + h(cutLine(p)) + '</span>' + estPill(p) + '</div>' : estPill(p) ? '<div class="cutline small">' + estPill(p) + '</div>' : '') + '</a>';
     }).join('');
     return '<div><p class="eyebrow">Immigration paths</p><h1>Your road to Canada</h1><p class="muted" style="max-width:66ch">Every route to permanent residence as a map of stops: what to do, which documents, how long, what it costs, with tips for applicants from Tunisia. Checked against official sources on ' + CHECKED + '.</p></div>' +
       (pinned ? '<a class="panel pinned" href="#/paths/' + pinned.id + '" style="--pc:' + pinned.color + '"><p class="eyebrow">Your path</p><h2>' + h(pinned.name) + '</h2><p>' + doneCount(pinned) + ' of ' + pinned.stops.length + ' stops done' + (nextStop(pinned) ? ' · next: <b>' + h(nextStop(pinned).title) + '</b>' : ' · all done') + '</p></a>' : '') +
+      toolsHtml() +
       finderHtml() +
       '<div class="pathgrid">' + cards + '</div>' +
       '<div class="panel flat"><h3>Paused programs</h3><ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">' + PAUSED.map((x) => '<li><b>' + h(x.name) + '.</b> ' + h(x.note) + ' <a href="' + x.link + '" target="_blank" rel="noopener">Official page</a></li>').join('') + '</ul></div>' +
       disclaimer() + (me ? '' : '<p class="small muted"><a href="#/signup">Create a free account</a> to save your progress on each map.</p>');
+  }
+  const cutLine = (p) => (st.draws ? lastCutLine(p, st.draws) : '');
+  function estPill(p) {
+    const pr = profile(); if (!pr && !(st.levels && (st.levels.frDetail || st.levels.enDetail))) return '';
+    const e = estimate(p, pr, st.draws, st.levels);
+    const map = { good: ['good', 'Likely'], close: ['warn', 'Possible'], far: ['bad', 'Hard now'], blocked: ['', 'Not eligible yet'] };
+    const m = map[e.status]; return m ? '<span class="pill ' + m[0] + '">' + m[1] + '</span>' : '';
+  }
+  function toolsHtml() {
+    const pr = profile(); const score = pr ? crs(pr).total : null;
+    const fr = st.draws ? recent(st.draws, 'french') : null; const cec = st.draws ? recent(st.draws, 'cec') : null;
+    return '<div class="tools">' +
+      '<a class="panel tool" href="#/paths/score"><span class="tool-ic" aria-hidden="true">' + (score != null ? '<b class="mono">' + score + '</b>' : '<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M16 11h0M8 15h2M12 15h2M8 18h2M12 18h4"/></svg>') + '</span><span><b>' + (score != null ? 'Your CRS score' : 'Score calculator') + '</b><br><span class="small muted">' + (score != null ? 'Edit your profile, see what raises it' : 'CRS out of 1,200 and the FSW 67 grid, in 2 minutes') + '</span></span></a>' +
+      '<a class="panel tool" href="#/paths/draws"><span class="tool-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 20h18M5 16l4-5 4 3 6-8"/></svg></span><span><b>Latest draws</b><br><span class="small muted">' + (fr && cec ? 'French ' + fr.last.crs + ' · CEC ' + cec.last.crs + ' · lowest scores per round' : 'Lowest score invited, per round and path') + '</span></span></a>' +
+      '</div>';
   }
   function finderHtml() {
     const f = st.finder || defaults();
@@ -135,6 +172,12 @@ export function createPaths(ctx) {
       '<p class="small"><a href="' + s.link + '" target="_blank" rel="noopener">Official page ↗</a></p>';
   }
 
+  function estHead(p) {
+    const e = estimate(p, profile(), st.draws, st.levels); const cut = cutLine(p);
+    if (!e.title && !cut) return '';
+    const cls = { good: 'good', close: 'warn', far: 'bad', blocked: 'bad' }[e.status] || '';
+    return '<button type="button" class="esthead" data-sa="to-estimate">' + (e.title ? '<span class="pill ' + cls + '">' + h(e.title) + '</span>' : '') + (cut ? '<span class="small mono">' + h(cut) + '</span>' : '') + '<span class="small">Your estimate ↓</span></button>';
+  }
   function mapWidth() { const a = document.getElementById('app'); return Math.max(300, Math.min(1180, (a ? a.clientWidth : 360) - 32)); }
 
   function detail(id) {
@@ -149,6 +192,7 @@ export function createPaths(ctx) {
       '<div class="panel pathhead" style="--pc:' + p.color + '"><p class="eyebrow">' + h(p.tag) + '</p><h1>' + h(p.name) + '</h1><p class="muted" style="max-width:70ch">' + h(p.summary) + '</p>' +
       '<div class="row" style="gap:8px"><span class="chip">⏱ ' + h(p.time) + '</span><span class="chip">' + h(p.cost) + '</span>' + (p.lang ? '<span class="chip">' + langLine(p) + '</span>' : '') + '</div>' +
       '<div class="stack" style="gap:6px"><div class="row between small"><span><b>' + d + '</b> of ' + p.stops.length + ' stops done' + (nx ? ' · next: <b>' + h(nx.title) + '</b>' : ' · all done') + '</span><span class="mono">' + pct + '%</span></div><div class="meter"><i style="width:' + pct + '%;background:' + p.color + '"></i></div></div>' +
+      estHead(p) +
       '<div class="row">' + (nx ? '<button class="btn primary" data-sa="open-stop" data-stop="' + nx.id + '" style="background:' + p.color + ';border-color:' + p.color + '">Open next stop</button>' : '') + (ctx.me() ? '<button class="btn" data-sa="pin-path" data-path="' + p.id + '">' + (isPinned ? 'My path ✓' : 'Make this my path') + '</button>' : '<a class="btn" href="#/signup">Sign up to save progress</a>') + '</div>' +
       '<details class="about"><summary>Who it\'s for and what\'s new in 2026</summary><div class="grid" style="margin-top:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div><b class="small">Who it\'s for</b><ul class="small" style="margin:6px 0 0;padding-left:18px">' + p.who.map((x) => '<li>' + h(x) + '</li>').join('') + '</ul></div>' + (p.facts && p.facts.length ? '<div><b class="small">Good to know in 2026</b><ul class="small" style="margin:6px 0 0;padding-left:18px">' + p.facts.map((x) => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : '') + '</div></details></div>';
     let body;
@@ -162,7 +206,28 @@ export function createPaths(ctx) {
           '<div class="row"><button class="btn sm' + (done ? '' : ' primary') + '" data-sa="stop-toggle" data-path="' + p.id + '" data-stop="' + s.id + '">' + (done ? 'Mark as not done' : 'Mark as done') + '</button></div></div></details></li>';
       }).join('') + '<li class="stop finish"><span class="dot">🍁</span><div class="stopbody"><span class="stoptitle">Permanent resident</span></div></li></ol>';
     }
-    return head + body + disclaimer();
+    return head + body + estimateHtml(p, profile(), st.draws, st.levels, !!ctx.me()) + disclaimer();
+  }
+
+  /* ---------- calculator + draws pages ---------- */
+  function scorePage() {
+    let p = profile();
+    if (!p) p = defaultProfile(st.levels);
+    st.calc = p;
+    return calculatorHtml(p, { levels: st.levels, draws: st.draws, signedIn: !!ctx.me(), saved: !!profile() });
+  }
+  function drawsPage() {
+    const pr = profile();
+    return drawsHtml(st.draws, { cat: st.drawsCat, group: st.drawsGroup, you: pr ? crs(pr).total : null, width: mapWidth() - 40 });
+  }
+  function onInput(form) {
+    if (!form || form.id !== 'f-crs') return false;
+    st.calc = readForm(form, st.calc || defaultProfile(st.levels));
+    const sp = document.getElementById('c-partner'); if (sp) sp.hidden = st.calc.spouse !== 'with';
+    const out = document.getElementById('crs-out'); if (out) out.innerHTML = resultHtml(st.calc, st.draws);
+    const fl = document.getElementById('crs-float-n'); if (fl) fl.textContent = crs(st.calc).total;
+    setProfile(st.calc); // account saves are debounced inside save()
+    return true;
   }
 
   /* ---------- stop drawer (side panel on desktop, bottom sheet on phones) ---------- */
@@ -209,10 +274,25 @@ export function createPaths(ctx) {
     }, 150);
   });
 
-  async function show(id) {
-    closeStop(); st.pathId = id || null;
+  async function show(raw) {
+    const [id0, qs] = String(raw || '').split('?'); const id = id0 || null;
+    const params = new URLSearchParams(qs || '');
+    const tok = st.tok = (st.tok || 0) + 1; // a newer navigation wins over a slower older one
+    closeStop();
+    if (id === 'score' || id === 'draws') {
+      st.pathId = null;
+      if (params.get('c')) { st.drawsCat = params.get('c'); st.drawsGroup = 'ee'; }
+      if (params.get('g')) st.drawsGroup = params.get('g');
+      ctx.render('paths', '<div class="row"><span class="spinner"></span></div>');
+      await Promise.all([load(), loadDraws()]);
+      if (tok !== st.tok) return;
+      ctx.render('paths', id === 'score' ? scorePage() : drawsPage());
+      return;
+    }
+    st.pathId = id;
     ctx.render('paths', '<div class="row"><span class="spinner"></span></div>');
-    await load();
+    await Promise.all([load(), loadDraws()]);
+    if (tok !== st.tok) return;
     ctx.render('paths', id ? detail(id) : list());
     lastW = mapWidth();
     if (id && st.view === 'map') return;
@@ -240,6 +320,11 @@ export function createPaths(ctx) {
     if (a === 'path-view') { st.view = t.dataset.v; closeStop(); const y = window.scrollY; ctx.render('paths', detail(st.pathId)); window.scrollTo(0, y); return true; }
     if (a === 'pin-path') { journey().pinned = journey().pinned === t.dataset.path ? null : t.dataset.path; save(); const y = window.scrollY; ctx.render('paths', detail(t.dataset.path)); window.scrollTo(0, y); return true; }
     if (a === 'jump') { const el = document.getElementById('stop-' + t.dataset.stop); if (el) { const d = el.querySelector('details'); if (d) d.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } return true; }
+    if (a === 'crs-fill') { const f = document.getElementById('f-crs'); st.calc = fillFromTests(st.calc || defaultProfile(st.levels), st.levels); setProfile(st.calc); ctx.render('paths', calculatorHtml(st.calc, { levels: st.levels, draws: st.draws, signedIn: !!ctx.me(), saved: true })); ctx.toast('Filled from your latest test results.'); return !!f; }
+    if (a === 'draws-cat') { st.drawsCat = t.dataset.c; const y = window.scrollY; ctx.render('paths', drawsPage()); window.scrollTo(0, y); return true; }
+    if (a === 'draws-group') { st.drawsGroup = t.dataset.g; const y = window.scrollY; ctx.render('paths', drawsPage()); window.scrollTo(0, y); return true; }
+    if (a === 'to-result') { const el = document.getElementById('crs-out'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return true; }
+    if (a === 'to-estimate') { const el = document.getElementById('estimate'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); return true; }
     if (a === 'finder-clear') { st.finder = null; journey().finder = null; save(); ctx.render('paths', list()); return true; }
     return false;
   }
@@ -256,5 +341,5 @@ export function createPaths(ctx) {
     const p = PATHS.find((x) => x.id === j.pinned); if (!p) return null;
     return { p, done: doneCount(p), next: nextStop(p) };
   }
-  return { show, onClick, onSubmit, load, pinnedSummary, reset: () => { st.loaded = false; st.journey = null; st.levels = null; st.finder = null; } };
+  return { show, onClick, onSubmit, onInput, load, loadDraws, profile, score: () => { const p = profile(); return p ? crs(p).total : null; }, frenchCut: () => { const r = st.draws && recent(st.draws, 'french'); return r && r.last; }, cecCut: () => { const r = st.draws && recent(st.draws, 'cec'); return r && r.last; }, pinnedSummary, reset: () => { st.loaded = false; st.loading = null; st.journey = null; st.levels = null; st.finder = null; } };
 }

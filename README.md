@@ -45,6 +45,14 @@ It also lists the paused programs. Each stop has the steps, documents, time, cos
 
 Progress is saved per account (docs namespace `journey`).
 
+## Score calculator, estimates and latest draws
+
+- **Score calculator** (`#/paths/score`): full CRS grid (out of 1,200, job-offer points removed since March 2025) and the FSW 67-point grid, with partner factors, skill transferability, the French bonus and "what would raise your score". Language levels are pre-filled from the user's IELTS / TEF results. Saved to the account (or on the device for visitors, then moved to the account at sign-up). Math is in `public/js/crs.js`, checked by `node test/crs.mjs`.
+- **Per-path estimate**: on every path, eligibility, the user's CRS against that path's recent cut-offs, timeline, official fees for the household and proof of funds. Path cards show the latest cut-off and a match pill.
+- **Latest draws** (`#/paths/draws`): Express Entry per category with a trend chart and the user's score line, Québec Arrima rounds, provincial rounds.
+  - Express Entry refreshes **by itself** from IRCC's public JSON feed every 6 hours (`lib/draws.js`, cached in the `settings` table, with the pool distribution). If IRCC can't be reached, the last copy or the bundled data is used.
+  - Québec and provinces have no feed: edit them in **Admin → Invitation rounds** (JSON), no redeploy needed. Set `DRAWS_OFFLINE=1` to disable the IRCC fetch.
+
 ## Caching and cost control
 
 - **Shared test pool:** each test part is written once, then reused by other learners at the same difficulty.

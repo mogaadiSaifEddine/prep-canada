@@ -151,6 +151,7 @@ const ICON = {
   map: '<path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/>',
   plans: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
   user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  calc: '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 11h2M12 11h2M8 15h2M12 15h2M8 18h2M12 18h4"/>',
   admin: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
   login: '<path d="M10 17l5-5-5-5M15 12H3M14 4h5a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-5"/>'
 };
@@ -265,7 +266,7 @@ async function viewHome() {
     (p.plan === 'free' ? '<div class="panel flat"><div class="row between"><div><h3>Unlock unlimited practice</h3><p class="muted small">Unlimited mock tests, your personal course and studio voices for Listening.</p></div><a class="btn primary" href="#/plans">See plans</a></div></div>' : ''));
   const act = (href, icon, title, sub, primary) => '<a class="action' + (primary ? ' primary' : '') + '" href="' + href + '"><span class="aic">' + icon + '</span><span class="atext"><b>' + h(title) + '</b>' + (sub ? '<span class="small muted">' + h(sub) + '</span>' : '') + '</span><span class="achev" aria-hidden="true">›</span></a>';
   const [ie, te] = await Promise.all(['ielts', 'tef'].map((ex) => api('GET', '/api/docs/' + ex + '/profile').then((r) => r.data).catch(() => null)));
-  await PV.load().catch(() => {});
+  await Promise.all([PV.load().catch(() => {}), PV.loadDraws().catch(() => null)]);
   if (!$('#today')) return;
   const acts = [];
   if (ie && ie.activeAttemptId) acts.push(act('#/ielts', badge('EN', '#B4263A'), 'Resume your IELTS test', 'Your answers are saved', true));
@@ -276,8 +277,10 @@ async function viewHome() {
   else acts.push(act('#/ielts', badge('EN', '#B4263A'), 'Practise IELTS', 'Mock tests and your course', false));
   if (!te || !te.placementDone) acts.push(act('#/tef', badge('FR', '#1F4FA8'), te && te.setupDone ? 'Passer le test de positionnement TEF' : 'Configurer votre coach TEF', 'Environ 2 h 55, avec pauses', false));
   else acts.push(act('#/tef', badge('FR', '#1F4FA8'), 'S’entraîner au TEF', 'Tests blancs et parcours', false));
+  const pf = PV.profile(); const fd = PV.frenchCut();
+  acts.push(act('#/paths/score', svgI('calc'), pf ? 'Your CRS score: ' + PV.score() : 'Calculate your CRS score', fd ? 'Latest French draw: ' + fd.crs + ' · CEC: ' + (PV.cecCut() || {}).crs : 'Express Entry points out of 1,200', false));
   if (!ps) acts.push(act('#/paths', svgI('map'), 'Find your immigration path', '11 routes to PR as maps', false));
-  $('#today').innerHTML = acts.slice(0, 4).join('');
+  $('#today').innerHTML = acts.slice(0, 5).join('');
   const put = (ex, d) => {
     const el = $('#sum-' + ex); if (!el || !d) return;
     if (ex === 'ielts') { const b = d.bands || {}; el.innerHTML = '<p class="mono">L ' + (b.L ?? '–') + ' · R ' + (b.R ?? '–') + ' · W ' + (b.W ?? '–') + ' · S ' + (b.S ?? '–') + '</p><p class="small muted">' + (d.placementDone ? 'Target CLB ' + (d.clbTarget || 9) : 'Placement test not taken yet') + '</p>'; }
@@ -387,6 +390,7 @@ async function viewAdmin() {
     '<div class="panel"><div class="row between"><h2>AI costs and cache</h2><span class="small muted">This month</span></div><div id="adm-costs"><span class="spinner"></span></div></div>' +
     '<div class="panel"><h2>Test pool</h2><p class="small muted" style="max-width:70ch">Tests are written once and reused by other learners at the same level. Nobody gets the same part twice. Fill the pool before launch so the first users get instant tests. Listening parts can also be voiced in advance.</p>' +
     '<form id="f-fill" class="row"><select id="fl-exam"><option value="ielts">IELTS</option><option value="tef">TEF</option></select><select id="fl-k"><option value="all">All sections</option><option value="L">Listening</option><option value="R">Reading</option><option value="W">Writing</option><option value="S">Speaking</option></select><select id="fl-diff"><option value="exam">Exam standard</option><option value="foundation">Foundation</option><option value="advanced">Advanced</option></select><label class="small">Sets <input type="text" id="fl-n" value="3" inputmode="numeric" style="width:56px"></label><label class="check small" style="grid-template-columns:22px auto"><input type="checkbox" id="fl-audio"><span>Voice Listening now</span></label><button class="btn sm primary" type="submit">Generate</button></form><p class="small" id="fl-status"></p><div id="adm-pool"></div></div>' +
+    '<div class="panel"><h2>Invitation rounds</h2><p class="small muted" style="max-width:70ch">Express Entry refreshes itself from IRCC every 6 hours. Québec and provincial rounds are edited here as JSON (same shape as shown), no redeploy needed.</p><div id="adm-draws"><span class="spinner"></span></div></div>' +
     '<div class="panel"><h2>Users</h2><form id="f-users" class="row"><input type="search" id="adm-q" placeholder="Email or name" style="flex:1 1 220px"><button class="btn sm" type="submit">Search</button></form><div id="adm-users"></div></div>');
   loadAdmin();
 }
@@ -396,7 +400,18 @@ async function loadAdmin() {
     const act = s.active.reduce((a, x) => a + x.n, 0);
     $('#kpis').innerHTML = [['Users', s.users], ['Active paid plans', act], ['Revenue this month', fmtTND(s.revenueMonth)], ['Payments to review', s.toReview], ['Tests started (7 days)', s.testsWeek]].map(([l, v]) => '<div class="panel kpi"><span class="small muted">' + l + '</span><b>' + h(v) + '</b></div>').join('');
   } catch (e) { handleError(e); }
-  loadAdminPays(); loadAdminUsers(); loadAdminCosts();
+  loadAdminPays(); loadAdminUsers(); loadAdminCosts(); loadAdminDraws();
+}
+async function loadAdminDraws() {
+  const el = $('#adm-draws'); if (!el) return;
+  try {
+    const r = await api('GET', '/api/admin/draws'); const c = r.current;
+    const top = c.ee.rounds[0];
+    el.innerHTML = '<p class="small">' + (c.live ? '<span class="pill good">Live from IRCC</span> ' : '<span class="pill warn">Using bundled data</span> ') + 'Latest Express Entry round: <b>#' + top.n + '</b> ' + h(top.date) + ' · ' + h(top.name) + ' · lowest ' + top.crs + (c.ee.fetchedAt ? ' · fetched ' + h(c.ee.fetchedAt.slice(0, 16).replace('T', ' ')) : '') + '</p>' +
+      '<div class="row"><button class="btn sm" data-sa="adm-draws-refresh">Refresh from IRCC now</button><button class="btn sm" data-sa="adm-draws-reset">Back to bundled Québec/provinces</button></div>' +
+      '<label class="stack" style="gap:6px"><span class="small muted">Québec and provinces (JSON)</span><textarea id="adm-draws-json" rows="14" class="mono" style="width:100%;font-size:.8rem">' + h(JSON.stringify({ checked: c.checked, quebec: c.quebec, provinces: c.provinces }, null, 2)) + '</textarea></label>' +
+      '<div class="row"><button class="btn sm primary" data-sa="adm-draws-save">Save</button><span id="adm-draws-msg" class="small muted"></span></div>';
+  } catch (e) { el.innerHTML = '<p class="small">' + h(e.message) + '</p>'; }
 }
 async function loadAdminCosts() {
   try {
@@ -495,7 +510,7 @@ async function route() {
   document.documentElement.lang = coachName === 'tef' ? 'fr' : 'en';
   const up = $('#upsell'); if (up) up.innerHTML = '';
   const publicPaths = ['/', '/login', '/signup', '/forgot', '/reset', '/legal/terms', '/legal/privacy', '/plans', '/paths'];
-  if (path.startsWith('/paths')) { PV.show(path.split('/')[2] || null); return; }
+  if (path.startsWith('/paths')) { const sub = path.split('/')[2] || null; PV.show(sub && Object.keys(q).length ? sub + '?' + new URLSearchParams(q) : sub); return; }
   if (!APP.me && !publicPaths.includes(path)) { go('/login?next=' + encodeURIComponent(path)); return; }
   if (APP.me && (path === '/login' || path === '/signup')) { go('/'); return; }
   if (coachName) {
@@ -575,12 +590,17 @@ document.addEventListener('click', async (e) => {
   if (a === 'logout') { try { await api('POST', '/api/auth/logout'); } catch { /* ignore */ } APP.me = null; APP.coaches = {}; go('/'); return; }
   if (a === 'receipt') { receipt(t.dataset.id); return; }
   if (a === 'adm-approve' || a === 'adm-reject') { try { await api('POST', '/api/admin/payments/' + t.dataset.id + '/' + (a === 'adm-approve' ? 'approve' : 'reject')); toast(a === 'adm-approve' ? 'Approved. The plan is active.' : 'Rejected.'); loadAdmin(); } catch (err) { handleError(err); } return; }
+  if (a === 'adm-draws-refresh') { t.disabled = true; try { const r = await api('POST', '/api/admin/draws/refresh'); toast(r.live ? 'Updated from IRCC: round #' + r.latest.n : 'IRCC could not be reached; bundled data kept.'); loadAdminDraws(); } catch (err) { handleError(err); t.disabled = false; } return; }
+  if (a === 'adm-draws-reset') { try { await api('DELETE', '/api/admin/draws'); toast('Back to the bundled data.'); loadAdminDraws(); } catch (err) { handleError(err); } return; }
+  if (a === 'adm-draws-save') { let data; try { data = JSON.parse($('#adm-draws-json').value); } catch { $('#adm-draws-msg').textContent = 'That is not valid JSON.'; return; } try { await api('PUT', '/api/admin/draws', data); toast('Saved. Everyone sees it within 30 minutes.'); loadAdminDraws(); } catch (err) { $('#adm-draws-msg').textContent = err.message; } return; }
   if (a === 'adm-retire') { try { await api('POST', '/api/admin/pool/' + t.dataset.id + '/retire', { retired: t.dataset.v === '1' }); loadAdminCosts(); } catch (err) { handleError(err); } return; }
   if (a === 'adm-plan') { const v = $('#up-' + t.dataset.id).value.split(':'); try { await api('POST', '/api/admin/users/' + t.dataset.id + '/plan', { plan: v[0], exam: v[1], days: Number($('#ud-' + t.dataset.id).value) }); toast('Plan updated.'); loadAdminUsers(); } catch (err) { handleError(err); } return; }
   if (a === 'adm-reset') { try { const r = await api('POST', '/api/admin/users/' + t.dataset.id + '/reset-password'); t.outerHTML = '<span class="small">Temporary password: <b class="mono" style="user-select:all">' + h(r.tempPassword) + '</b></span>'; } catch (err) { handleError(err); } return; }
   if (a === 'adm-disable') { try { await api('POST', '/api/admin/users/' + t.dataset.id + '/disable', { disabled: t.dataset.v === '1' }); loadAdminUsers(); } catch (err) { handleError(err); } }
 });
+document.addEventListener('input', (e) => { if (e.target.form) PV.onInput(e.target.form); });
 document.addEventListener('change', (e) => {
+  if (e.target.form && e.target.form.id === 'f-crs') { PV.onInput(e.target.form); return; }
   if (e.target.name === 'paymethod') { APP.billing.method = e.target.value; viewPlans(); }
   if (e.target.id === 'adm-pst') loadAdminPays();
 });
