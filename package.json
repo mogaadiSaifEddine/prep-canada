@@ -1,22 +1,33 @@
 {
   "name": "prep-canada",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "type": "module",
-  "description": "IELTS General Training and TEF Canada coach: placement tests, personal courses and adaptive mock tests.",
+  "description": "IELTS General Training and TEF Canada coach: placement tests, personal courses and adaptive mock tests, plus immigration path maps. Next.js + TypeScript.",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "test": "node test/smoke.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test:crs": "tsx test/crs.mts",
+    "i18n:check": "tsx scripts/i18n-keys.mts --check"
   },
   "engines": {
     "node": ">=20.12"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
-    "postgres": "^3.4.5"
+    "next": "16.3.6",
+    "postgres": "^3.4.5",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.2.17"
+    "@electric-sql/pglite": "^0.2.17",
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "tsx": "^4",
+    "typescript": "^5"
   }
 }
