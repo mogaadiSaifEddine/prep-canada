@@ -10,7 +10,7 @@
     "test": "node test/smoke.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",

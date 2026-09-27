@@ -1,10 +1,12 @@
 // Local / self-hosted server: serves the app from ./public and the API from lib/app.js.
-// Usage: DATABASE_URL=... GEMINI_API_KEY=... node server.js
+// Usage: put your settings in .env (see .env.example), then: npm run dev
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import handler from './lib/app.js';
+// Local runs read settings from .env when it exists (on Vercel, set them in Project Settings → Environment Variables)
+try { process.loadEnvFile(); } catch (e) { if (e.code !== 'ENOENT') console.warn('.env not loaded:', e.message); }
+const { default: handler } = await import('./lib/app.js');
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
