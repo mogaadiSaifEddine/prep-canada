@@ -1,5 +1,7 @@
 // Journey map renderer: draws a path as a winding road from Tunisia, across the sea, to Canada,
 // with one pin per stop. Pure SVG, sized to the available width, deterministic per path.
+// The geometry is left-to-right in every language (direction:ltr on the <svg>); text is translated.
+import { t, lang } from './i18n.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -66,9 +68,11 @@ export function renderMap(p, progress, W, opts = {}) {
     const y = top + row * rh + (R() - 0.5) * 22;
     return [x, y];
   });
+  const rtl = lang() === 'ar';                       // Arabic: the road starts top-right, like the text
   const start = [pts[0][0] - (narrow ? 8 : 20), top - (narrow ? 84 : 92)];
   const last = pts[n - 1];
   const finish = [last[0] + ((rows % 2) ? 1 : -1) * (narrow ? 0 : 30), last[1] + (narrow ? 118 : 124)];
+  if (rtl) { for (const q of [start, finish, ...pts]) q[0] = W - q[0]; }
   const H = Math.ceil(finish[1] + (narrow ? 78 : 86));
   const all = [start, ...pts, finish];
   const segs = segments(all);
@@ -102,13 +106,16 @@ export function renderMap(p, progress, W, opts = {}) {
   }
 
   const coast = (y, wob) => { let d = 'M0 ' + f(y); for (let x = 0; x <= W; x += 40) d += ' L' + x + ' ' + f(y + Math.sin(x / 57 + wob) * 9 + Math.sin(x / 23) * 4); return d; };
+  // Zone names in capitals, except Arabic (no case; letter-spacing would also break the joined letters)
+  const zone = (s) => (lang() === 'ar' ? s : s.toUpperCase());
+  const zst = lang() === 'ar' ? ' style="letter-spacing:0"' : '';
   const bg =
     '<rect width="' + W + '" height="' + H + '" fill="var(--map-sea)"/>' +
     '<path d="' + coast(seaTop, 1) + ' L' + W + ' 0 L0 0 Z" fill="var(--map-sand)"/>' +
     '<path d="' + coast(seaBot, 4) + ' L' + W + ' ' + H + ' L0 ' + H + ' Z" fill="var(--map-land)"/>' +
-    '<text x="' + (W - 14) + '" y="26" text-anchor="end" class="mzone">TUNISIE</text>' +
-    '<text x="' + (W - 14) + '" y="' + f((seaTop + seaBot) / 2) + '" text-anchor="end" class="mzone">ATLANTIQUE</text>' +
-    '<text x="' + (W - 14) + '" y="' + f(seaBot + 30) + '" text-anchor="end" class="mzone">CANADA</text>';
+    '<text x="' + (rtl ? 14 : W - 14) + '" y="26" text-anchor="' + (rtl ? 'start' : 'end') + '" class="mzone"' + zst + '>' + esc(zone(t('Tunisia'))) + '</text>' +
+    '<text x="' + (rtl ? 14 : W - 14) + '" y="' + f((seaTop + seaBot) / 2) + '" text-anchor="' + (rtl ? 'start' : 'end') + '" class="mzone"' + zst + '>' + esc(zone(t('Atlantic'))) + '</text>' +
+    '<text x="' + (rtl ? 14 : W - 14) + '" y="' + f(seaBot + 30) + '" text-anchor="' + (rtl ? 'start' : 'end') + '" class="mzone"' + zst + '>' + esc(zone(t('Canada'))) + '</text>';
 
   const fullD = segD(segs);
   const doneD = reach >= 0 ? segD(segs.slice(0, reach + 1)) : '';
@@ -125,32 +132,34 @@ export function renderMap(p, progress, W, opts = {}) {
     const [x, y] = pts[i]; const done = !!progress[s.id]; const cur = i === current;
     const r = narrow ? 17 : 20;
     const lines = wrap(s.title, maxc);
-    return '<g class="mpin' + (done ? ' done' : '') + (cur ? ' cur' : '') + (s.optional ? ' opt' : '') + '" data-sa="open-stop" data-stop="' + s.id + '" tabindex="0" role="button" aria-label="Stop ' + (i + 1) + ': ' + esc(s.title) + (done ? ' (done)' : '') + '" transform="translate(' + f(x) + ' ' + f(y) + ')">' +
+    return '<g class="mpin' + (done ? ' done' : '') + (cur ? ' cur' : '') + (s.optional ? ' opt' : '') + '" data-sa="open-stop" data-stop="' + s.id + '" tabindex="0" role="button" aria-label="' + esc(t('Stop {n}: {title}', { n: i + 1, title: s.title }) + (done ? ' ' + t('(done)') : '')) + '" transform="translate(' + f(x) + ' ' + f(y) + ')">' +
       (cur ? '<circle r="' + r + '" class="mpulse" style="fill:' + p.color + '"><animate attributeName="r" from="' + r + '" to="' + (r + 16) + '" dur="1.8s" repeatCount="indefinite"/><animate attributeName="opacity" from=".45" to="0" dur="1.8s" repeatCount="indefinite"/></circle>' : '') +
       '<ellipse cy="' + (r - 1) + '" rx="' + (r * 0.8) + '" ry="4" class="mshadow"/>' +
       '<circle r="' + r + '" class="mdisc" style="' + (done ? 'fill:' + p.color + ';stroke:' + p.color : 'stroke:' + p.color) + '"/>' +
       '<text class="mnum" dy="5">' + (done ? '✓' : i + 1) + '</text>' +
       '<g transform="translate(' + f(nudge(x, [...lines, String(s.time).split(/[,(]/)[0].slice(0, maxc + 6)], maxc)) + ' 0)"><text class="mlabel" y="' + (r + 18) + '">' + lines.map((l, k) => '<tspan x="0" dy="' + (k ? 15 : 0) + '">' + esc(l) + '</tspan>').join('') + '</text>' +
       '<text class="mtime" y="' + (r + 20 + lines.length * 15) + '">' + esc(String(s.time).split(/[,(]/)[0].slice(0, maxc + 6)) + '</text></g>' +
-      (cur ? '<g transform="translate(0 ' + (-r - 22) + ')"><rect x="-44" y="-13" width="88" height="22" rx="11" style="fill:' + p.color + '"/><text class="mhere" dy="3">' + esc(opts.hereLabel || 'You are here') + '</text></g>' : '') +
+      (cur ? '<g transform="translate(0 ' + (-r - 22) + ')"><rect x="-44" y="-13" width="88" height="22" rx="11" style="fill:' + p.color + '"/><text class="mhere" dy="3">' + esc(opts.hereLabel || t('You are here')) + '</text></g>' : '') +
       '</g>';
   }).join('');
 
-  const startSvg = '<g transform="translate(' + f(start[0]) + ' ' + f(start[1]) + ')" class="mend"><circle r="' + (narrow ? 16 : 18) + '" class="mstart"/><path d="M-3 -8 v16 M-3 -8 h10 l-3 4 l3 4 h-10" class="mflag" style="stroke:var(--map-tn)"/><text x="' + (narrow ? 24 : 28) + '" dy="5" class="mendlabel" style="text-anchor:start">' + esc(opts.startLabel || 'Start: Tunisia') + '</text></g>';
+  const startSvg = '<g transform="translate(' + f(start[0]) + ' ' + f(start[1]) + ')" class="mend"><circle r="' + (narrow ? 16 : 18) + '" class="mstart"/><path d="M-3 -8 v16 M-3 -8 h10 l-3 4 l3 4 h-10" class="mflag" style="stroke:var(--map-tn)"/><text x="' + (rtl ? -1 : 1) * (narrow ? 24 : 28) + '" dy="5" class="mendlabel" style="text-anchor:' + (rtl ? 'end' : 'start') + '">' + esc(opts.startLabel || t('Start: Tunisia')) + '</text></g>';
   const leaf = 'M0 -13 l3 6 l4 -2 l-1 6 l5 -1 l-3 4 l3 1 l-8 5 l1 3 h-2 v4 h-1 v-4 h-2 l1 -3 l-8 -5 l3 -1 l-3 -4 l5 1 l-1 -6 l4 2 z';
-  const finishSvg = '<g transform="translate(' + f(finish[0]) + ' ' + f(finish[1]) + ')" class="mend"><circle r="' + (narrow ? 24 : 28) + '" class="mfinish" style="stroke:' + p.color + '"/><path d="' + leaf + '" fill="#D52B1E" transform="scale(' + (narrow ? 1.05 : 1.2) + ')"/><text x="' + f(nudge(finish[0], ['Permanent resident'], 0, 5)) + '" y="' + (narrow ? 44 : 50) + '" class="mendlabel">Permanent resident</text></g>';
+  const prLabel = t('Permanent resident');
+  const finishSvg = '<g transform="translate(' + f(finish[0]) + ' ' + f(finish[1]) + ')" class="mend"><circle r="' + (narrow ? 24 : 28) + '" class="mfinish" style="stroke:' + p.color + '"/><path d="' + leaf + '" fill="#D52B1E" transform="scale(' + (narrow ? 1.05 : 1.2) + ')"/><text x="' + f(nudge(finish[0], [prLabel], 0, 5)) + '" y="' + (narrow ? 44 : 50) + '" class="mendlabel">' + esc(prLabel) + '</text></g>';
 
-  const compass = narrow ? '' : '<g transform="translate(' + (W - 46) + ' ' + (H - 50) + ')" class="mcompass"><circle r="22"/><path d="M0 -18 L5 0 L0 18 L-5 0 Z"/><path d="M0 -18 L5 0 L-5 0 Z" class="mcompass-n"/><text y="-25">N</text></g>';
+  const compass = narrow ? '' : '<g transform="translate(' + (rtl ? 46 : W - 46) + ' ' + (H - 50) + ')" class="mcompass"><circle r="22"/><path d="M0 -18 L5 0 L0 18 L-5 0 Z"/><path d="M0 -18 L5 0 L-5 0 Z" class="mcompass-n"/><text y="-25">N</text></g>';
 
-  return '<svg class="jmap" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" aria-label="Map of the ' + esc(p.name) + ' path, ' + n + ' stops">' + bg + decor + roadSvg + startSvg + finishSvg + pins + compass + '</svg>';
+  return '<svg class="jmap" viewBox="0 0 ' + W + ' ' + H + '" width="' + W + '" height="' + H + '" role="img" style="direction:ltr" aria-label="' + esc(t('Map of the {name} path, {n} stops', { name: p.name, n })) + '">' + bg + decor + roadSvg + startSvg + finishSvg + pins + compass + '</svg>';
 }
 
 // Small trail thumbnail for path cards
 export function miniTrail(p, done, W = 260, H = 54) {
   const n = p.stops.length; const R = rng(p.id + 'm');
-  const pts = p.stops.map((s, i) => [12 + i * (W - 24) / (n - 1), H / 2 + Math.sin(i * 1.3 + R() * 2) * (H / 2 - 12)]);
+  const rtl = lang() === 'ar';
+  const pts = p.stops.map((s, i) => { const x = 12 + i * (W - 24) / (n - 1); return [rtl ? W - x : x, H / 2 + Math.sin(i * 1.3 + R() * 2) * (H / 2 - 12)]; });
   const d = segD(segments(pts));
   const dd = done ? segD(segments(pts).slice(0, Math.max(0, done - 1))) : '';
-  return '<svg class="mtrail" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + d + '" class="mt-road"/>' + (dd ? '<path d="' + dd + '" style="stroke:' + p.color + '" class="mt-done"/>' : '') +
+  return '<svg class="mtrail" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="direction:ltr" aria-hidden="true"><path d="' + d + '" class="mt-road"/>' + (dd ? '<path d="' + dd + '" style="stroke:' + p.color + '" class="mt-done"/>' : '') +
     pts.map((q, i) => '<circle cx="' + f(q[0]) + '" cy="' + f(q[1]) + '" r="' + (i === n - 1 ? 5 : 3.6) + '" style="' + (i < done ? 'fill:' + p.color + ';stroke:' + p.color : 'stroke:' + p.color) + '" class="mt-dot"/>').join('') + '</svg>';
 }

@@ -2,16 +2,18 @@
 // Federal Skilled Worker 67-point grid. Official grids as published by IRCC, in force on
 // 27 September 2026 (job-offer points were removed from CRS on 25 March 2025).
 // Pure functions: no DOM, so they can be tested in Node.
+// Labels are English keys marked with tk(); the UI translates them with t() when rendering.
+import { tk } from './i18n.js';
 
 export const EDU = [
-  ['none', 'Less than secondary school'],
-  ['sec', 'Secondary school (bac)'],
-  ['1yr', 'One-year post-secondary program'],
-  ['2yr', 'Two-year post-secondary program (e.g. BTS)'],
-  ['bach', 'Bachelor\'s degree or 3+ year program (licence)'],
-  ['two', 'Two or more credentials, one of them 3+ years'],
-  ['mast', 'Master\'s or professional degree (mastère, engineer, doctor of medicine…)'],
-  ['phd', 'Doctorate (PhD)']
+  ['none', tk('Less than secondary school')],
+  ['sec', tk('Secondary school (bac)')],
+  ['1yr', tk('One-year post-secondary program')],
+  ['2yr', tk('Two-year post-secondary program (e.g. BTS)')],
+  ['bach', tk('Bachelor\'s degree or 3+ year program (licence)')],
+  ['two', tk('Two or more credentials, one of them 3+ years')],
+  ['mast', tk('Master\'s or professional degree (mastère, engineer, doctor of medicine…)')],
+  ['phd', tk('Doctorate (PhD)')]
 ];
 const SKILLS = ['L', 'R', 'W', 'S'];
 const pick = (tbl, v) => { for (const [min, pts] of tbl) if (v >= min) return pts; return 0; };
@@ -134,15 +136,15 @@ const raise = (o, n) => { const x = clone(o); SKILLS.forEach((k) => { x[k] = Mat
 export function boosts(p) {
   const base = crs(p).total;
   const tries = [];
-  const t = (label, q, how) => { const v = crs(q).total; if (v > base) tries.push({ label, gain: v - base, total: v, how }); };
-  if (!allAtLeast(p.fr, 7)) t('French NCLC 7 in all four skills', { ...clone(p), fr: raise(p.fr, 7) }, 'Also opens the French-language draws, the biggest in 2026.');
-  if (allAtLeast(p.fr, 7) && !allAtLeast(p.fr, 9)) t('French NCLC 9 in all four skills', { ...clone(p), fr: raise(p.fr, 9) }, 'More points as a second (or first) language.');
-  if (!allAtLeast(p.en, 9)) t('English CLB 9 in all four skills (IELTS L8 R7 W7 S7)', { ...clone(p), en: raise(p.en, 9) }, 'CLB 9 unlocks the top skill-transferability points.');
-  else if (!allAtLeast(p.en, 10)) t('English CLB 10 in all four skills', { ...clone(p), en: raise(p.en, 10) }, '');
-  if ((Number(p.caExp) || 0) < 1) t('One year of skilled work in Canada', { ...clone(p), caExp: 1 }, 'Also makes you eligible for CEC.');
-  if (!['mast', 'phd'].includes(p.edu)) t('A master\'s degree (assessed)', { ...clone(p), edu: 'mast' }, '');
-  if (p.spouse === 'with' && !allAtLeast((p.sp || {}).lang, 7)) t('Your partner reaches CLB/NCLC 7', { ...clone(p), sp: { ...clone(p.sp), lang: raise((p.sp || {}).lang, 7) } }, '');
-  if (!p.pnp) t('A provincial nomination', { ...clone(p), pnp: true }, 'Practically guarantees an invitation.');
+  const tr = (label, q, how) => { const v = crs(q).total; if (v > base) tries.push({ label, gain: v - base, total: v, how }); };
+  if (!allAtLeast(p.fr, 7)) tr(tk('French NCLC 7 in all four skills'), { ...clone(p), fr: raise(p.fr, 7) }, tk('Also opens the French-language draws, the biggest in 2026.'));
+  if (allAtLeast(p.fr, 7) && !allAtLeast(p.fr, 9)) tr(tk('French NCLC 9 in all four skills'), { ...clone(p), fr: raise(p.fr, 9) }, tk('More points as a second (or first) language.'));
+  if (!allAtLeast(p.en, 9)) tr(tk('English CLB 9 in all four skills (IELTS L8 R7 W7 S7)'), { ...clone(p), en: raise(p.en, 9) }, tk('CLB 9 unlocks the top skill-transferability points.'));
+  else if (!allAtLeast(p.en, 10)) tr(tk('English CLB 10 in all four skills'), { ...clone(p), en: raise(p.en, 10) }, '');
+  if ((Number(p.caExp) || 0) < 1) tr(tk('One year of skilled work in Canada'), { ...clone(p), caExp: 1 }, tk('Also makes you eligible for CEC.'));
+  if (!['mast', 'phd'].includes(p.edu)) tr(tk('A master\'s degree (assessed)'), { ...clone(p), edu: 'mast' }, '');
+  if (p.spouse === 'with' && !allAtLeast((p.sp || {}).lang, 7)) tr(tk('Your partner reaches CLB/NCLC 7'), { ...clone(p), sp: { ...clone(p.sp), lang: raise((p.sp || {}).lang, 7) } }, '');
+  if (!p.pnp) tr(tk('A provincial nomination'), { ...clone(p), pnp: true }, tk('Practically guarantees an invitation.'));
   return tries.sort((a, b) => b.gain - a.gain);
 }
 
