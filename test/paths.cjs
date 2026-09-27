@@ -14,15 +14,16 @@ const shots = '/tmp/pc-shots'; require('fs').mkdirSync(shots, { recursive: true 
     const first = await page.textContent('.pathgrid .pathcard h3'); if (!/French-language/.test(first)) throw new Error('first was ' + first);
     await page.screenshot({ path: shots + '/31-finder.png', fullPage: true });
   });
-  await step('map page', async () => { await page.click('.pathgrid .pathcard >> nth=0'); await page.waitForSelector('.route .stop'); await page.screenshot({ path: shots + '/32-map.png', fullPage: true }); });
+  await step('map page', async () => { await page.click('.pathgrid .pathcard >> nth=0'); await page.waitForSelector('.jmap .mpin'); await page.screenshot({ path: shots + '/32-map.png', fullPage: true }); await page.click('.mpin >> nth=3'); await page.waitForSelector('#stopdrawer.open .drawer'); await page.waitForTimeout(300); await page.screenshot({ path: shots + '/32b-drawer.png' }); await page.keyboard.press('Escape'); });
   await step('sign up and tick stops', async () => {
     await page.goto(BASE + '/#/signup'); await page.fill('#s-name', 'Paths Tester'); await page.fill('#s-email', 'paths' + Date.now() + '@x.tn'); await page.fill('#s-pass', 'secret123'); await page.check('#s-consent'); await page.click('button[type=submit]');
-    await page.waitForSelector('text=Welcome'); await page.waitForSelector('text=Which immigration path fits you?');
-    await page.goto(BASE + '/#/paths/ee-french'); await page.waitForSelector('.route');
-    await page.click('.stop#stop-check .dot'); await page.click('.stop#stop-french .dot');
+    await page.waitForSelector('text=Welcome'); await page.waitForSelector('text=Find your immigration path');
+    await page.goto(BASE + '/#/paths/ee-french'); await page.waitForSelector('.jmap');
+    await page.click('.mpin[data-stop=check]'); await page.waitForSelector('#stopdrawer.open .drawer'); await page.click('#stopdrawer .dr-foot [data-sa=stop-toggle]');
+    await page.waitForSelector('#stopdrawer.open #dr-title >> text=Take TEF Canada'); await page.click('#stopdrawer .dr-foot [data-sa=stop-toggle]'); await page.waitForTimeout(300); await page.keyboard.press('Escape');
     await page.waitForSelector('text=2 of 14 stops done');
     await page.waitForTimeout(1200); await page.reload(); await page.waitForSelector('text=2 of 14 stops done');
-    await page.waitForSelector('.stop.current#stop-eca');
+    await page.waitForSelector('.mpin.cur[data-stop=eca]');
     await page.screenshot({ path: shots + '/33-map-progress.png', fullPage: true });
   });
   await step('home shows the pinned path', async () => { await page.goto(BASE + '/#/'); await page.waitForSelector('text=Your immigration path'); await page.screenshot({ path: shots + '/34-home-path.png' }); });

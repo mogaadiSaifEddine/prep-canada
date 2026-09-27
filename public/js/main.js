@@ -2,6 +2,7 @@
 import { createIELTS } from './ielts.js';
 import { createTEF } from './tef.js';
 import { createPaths } from './pathsview.js';
+import { miniTrail } from './pathmap.js';
 
 const $ = (s) => document.querySelector(s);
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -144,18 +145,43 @@ function renewBanner() {
 }
 
 /* ---------------- header ---------------- */
-function topRow(active) {
+/* ---------------- app chrome: side menu (desktop), tab bar (phones) ---------------- */
+const ICON = {
+  home: '<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+  map: '<path d="M9 4l-6 2v14l6-2 6 2 6-2V4l-6 2zM9 4v14M15 6v14"/>',
+  plans: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 10h18M7 15h4"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/>',
+  admin: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  login: '<path d="M10 17l5-5-5-5M15 12H3M14 4h5a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-5"/>'
+};
+const svgI = (k) => '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICON[k] + '</svg>';
+const badge = (t, c) => '<span class="xbadge" style="--xb:' + c + '">' + t + '</span>';
+function navItems() {
   const me = APP.me;
-  const exam = active === 'ielts' || active === 'tef';
-  return '<header class="top"><a class="brand" href="#/"><span class="mark">PC</span><div><b>Prep Canada</b><div class="sub">IELTS &amp; TEF Canada coach</div></div></a>' +
-    (me ? '<div class="examswitch" role="navigation" aria-label="Exam"><a href="#/ielts"' + (active === 'ielts' ? ' aria-current="page"' : '') + '>IELTS</a><a href="#/tef"' + (active === 'tef' ? ' aria-current="page"' : '') + '>TEF</a></div>' : '') +
-    '<nav class="acct" aria-label="Account">' + (me
-      ? '<a href="#/paths"' + (active === 'paths' ? ' aria-current="page"' : '') + '>Paths</a><a href="#/plans"' + (active === 'plans' ? ' aria-current="page"' : '') + '>Plans</a><a href="#/account"' + (active === 'account' ? ' aria-current="page"' : '') + '>Account</a>' + (me.isAdmin ? '<a href="#/admin"' + (active === 'admin' ? ' aria-current="page"' : '') + '>Admin</a>' : '')
-      : '<a href="#/paths">Paths</a><a href="#/plans">Plans</a><a href="#/login">Sign in</a><a class="btn sm primary" href="#/signup" style="color:var(--accent-ink)">Create account</a>') +
-    '</nav></header>' + (exam ? '' : renewBanner());
+  const items = [['home', '#/', svgI('home'), 'Home'], ['ielts', '#/ielts', badge('EN', '#B4263A'), 'IELTS'], ['tef', '#/tef', badge('FR', '#1F4FA8'), 'TEF'], ['paths', '#/paths', svgI('map'), 'Paths']];
+  if (me) { items.push(['plans', '#/plans', svgI('plans'), 'Plans'], ['account', '#/account', svgI('user'), 'Account']); if (me.isAdmin) items.push(['admin', '#/admin', svgI('admin'), 'Admin']); }
+  else items.push(['plans', '#/plans', svgI('plans'), 'Plans'], ['login', '#/login', svgI('login'), 'Sign in']);
+  return items;
 }
+function renderChrome(active) {
+  APP.active = active;
+  const me = APP.me; const p = me && me.plan;
+  const side = $('#side'), tab = $('#tabbar'); if (!side || !tab) return;
+  side.innerHTML = '<a class="brand" href="#/"><span class="mark">PC</span><div><b>Prep Canada</b><div class="sub">IELTS &amp; TEF coach</div></div></a>' +
+    '<nav class="sidenav" aria-label="Main">' + navItems().filter(([k]) => me || !['ielts', 'tef'].includes(k)).map(([k, href, ic, label]) => '<a href="' + href + '"' + (active === k ? ' aria-current="page"' : '') + '>' + ic + '<span>' + label + '</span></a>').join('') + '</nav>' +
+    (me ? '<a class="sideplan" href="#/' + (p.plan === 'free' ? 'plans' : 'account') + '"><span class="small muted">Your plan</span><b>' + h(planLabel(p)) + '</b>' + (p.until ? '<span class="small muted">until ' + h(fmtDate(p.until)) + '</span>' : '<span class="small" style="color:var(--accent)">Upgrade →</span>') + '</a>'
+      : '<a class="btn primary" href="#/signup" style="justify-content:center">Create free account</a>');
+  const tabs = me ? [['home'], ['ielts'], ['tef'], ['paths'], ['account']] : [['home'], ['paths'], ['plans'], ['login']];
+  const all = navItems();
+  tab.innerHTML = tabs.map(([k]) => { const it = all.find((x) => x[0] === k); if (!it) return ''; const cur = active === k || (k === 'account' && ['plans', 'admin'].includes(active)); return '<a href="' + it[1] + '"' + (cur ? ' aria-current="page"' : '') + '>' + it[2] + '<span>' + it[3] + '</span></a>'; }).join('');
+}
+function mobileTop() {
+  const me = APP.me;
+  return '<header class="mtop"><a class="brand" href="#/"><span class="mark">PC</span><b>Prep Canada</b></a>' + (me ? '<a class="pill ' + (me.plan.plan === 'free' ? '' : 'good') + '" href="#/' + (me.plan.plan === 'free' ? 'plans' : 'account') + '">' + h(planLabel(me.plan)) + '</a>' : '<a class="btn sm primary" href="#/signup">Sign up</a>') + '</header>';
+}
+function topRow() { return mobileTop() + renewBanner(); }
 function coachHeader(exam, nav, current, subtitle) {
-  return '<div class="apphead">' + topRow(exam) + renewBanner() + '<div class="row between"><nav class="nav" aria-label="Sections">' + nav.map(([v, l]) => '<button data-nav="' + v + '" ' + (current === v ? 'aria-current="page"' : '') + '>' + h(l) + '</button>').join('') + '</nav><span class="small muted">' + h(subtitle || '') + '</span></div></div>';
+  return '<div class="apphead">' + mobileTop() + renewBanner() + '<div class="modhead"><div class="modtitle">' + badge(exam === 'tef' ? 'FR' : 'EN', exam === 'tef' ? '#1F4FA8' : '#B4263A') + '<div><b>' + (exam === 'tef' ? 'TEF Canada' : 'IELTS General Training') + '</b><span class="small muted">' + h(subtitle || '') + '</span></div></div><nav class="nav" aria-label="Sections">' + nav.map(([v, l]) => '<button data-nav="' + v + '" ' + (current === v ? 'aria-current="page"' : '') + '>' + h(l) + '</button>').join('') + '</nav></div></div>';
 }
 function footer() {
   const c = APP.config || {};
@@ -170,7 +196,13 @@ function makeCtx(exam) {
     putDoc: (ex, key, val) => api('PUT', '/api/docs/' + ex + '/' + key, { data: val }),
     ai: (ex, task, params) => api('POST', '/api/ai', Object.assign({ exam: ex, task }, params || {})),
     header: coachHeader,
-    afterRender: () => { const f = $('#app'); if (f && !f.querySelector('.exambar') && !f.querySelector('.foot')) f.insertAdjacentHTML('beforeend', footer()); },
+    afterRender: () => {
+      const f = $('#app'); if (!f) return;
+      const focus = !f.querySelector('.modhead');   // test flow (intro, sections, marking) renders without the section tabs
+      document.body.classList.toggle('focus', focus);
+      if (APP.active !== exam) renderChrome(exam);
+      if (!focus && !f.querySelector('.foot')) f.insertAdjacentHTML('beforeend', footer());
+    },
     firstName: () => ((APP.me && APP.me.name) || '').split(' ')[0] || (exam === 'tef' ? '' : 'there'),
     planPill, ent: (ex) => APP.ent[ex] || {}, upsell,
     stopAudio, audioSeries, say,
@@ -192,7 +224,7 @@ const PV = createPaths({
 
 /* ---------------- pages ---------------- */
 function setupBanner() { const s = APP.setup; if (!s) return ''; return '<div class="banner bad"><b>Setup not finished.</b> The owner still needs to add: ' + h((s.missing || []).concat(s.db === false && !(s.missing || []).includes('DATABASE_URL') ? ['a working database connection'] : []).join(', ')) + '. Sign-up will work once this is done.</div>'; }
-function page(active, body) { $('#app').innerHTML = topRow(active) + setupBanner() + body + footer(); window.scrollTo(0, 0); }
+function page(active, body) { renderChrome(active); document.body.classList.remove('focus'); $('#app').innerHTML = topRow(active) + setupBanner() + body + footer(); window.scrollTo(0, 0); }
 
 function viewLanding() {
   const pr = (APP.config && APP.config.prices) || { solo: { month: 15 }, duo: { month: 25 } };
@@ -224,26 +256,36 @@ function viewReset(q) {
 
 async function viewHome() {
   const p = APP.me.plan;
-  const card = (ex, c, title, sub, lang) => '<a class="panel examcard" style="--c:' + c + '" href="#/' + ex + '"><span class="tag">' + title + '</span><h2>' + sub + '</h2><div class="stack" style="gap:6px" id="sum-' + ex + '"><p class="muted small">' + lang + '</p></div><div class="row">' + (APP.ent[ex].paid ? '<span class="pill good">Included in your plan</span>' : '<span class="pill">Free plan</span>') + '</div></a>';
-  page('home', '<div class="row between"><div><p class="eyebrow">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</p><h1>Welcome, ' + h(APP.me.name.split(' ')[0]) + '</h1></div><a class="pill ' + (p.plan === 'free' ? '' : 'good') + '" href="#/account">' + h(planLabel(p)) + (p.until ? ' · until ' + h(fmtDate(p.until)) : '') + '</a></div>' +
+  const card = (ex, c, title, sub, lang) => '<a class="panel examcard" style="--c:' + c + '" href="#/' + ex + '"><div class="row between"><span class="tag">' + title + '</span>' + badge(ex === 'tef' ? 'FR' : 'EN', c) + '</div><h2>' + sub + '</h2><div class="stack" style="gap:6px" id="sum-' + ex + '"><p class="muted small">' + lang + '</p></div><div class="row">' + (APP.ent[ex].paid ? '<span class="pill good">Included in your plan</span>' : '<span class="pill">Free plan</span>') + '</div></a>';
+  page('home', '<div><p class="eyebrow">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</p><h1>Welcome, ' + h(APP.me.name.split(' ')[0]) + '</h1></div>' +
+    '<section class="panel today" aria-labelledby="today-t"><h2 id="today-t">Today</h2><div id="today" class="actions"><div class="row"><span class="spinner"></span><span class="muted small">Loading your next steps…</span></div></div></section>' +
     '<div class="grid">' + card('ielts', '#B4263A', 'IELTS GENERAL TRAINING', 'English coach', 'Band scores and CLB levels.') + card('tef', '#1F4FA8', 'TEF CANADA', 'Coach de français', 'Scores sur 699 et niveaux NCLC.') + '</div>' +
     '<div id="home-path"></div>' +
     installPanel() +
     (p.plan === 'free' ? '<div class="panel flat"><div class="row between"><div><h3>Unlock unlimited practice</h3><p class="muted small">Unlimited mock tests, your personal course and studio voices for Listening.</p></div><a class="btn primary" href="#/plans">See plans</a></div></div>' : ''));
-  PV.load().then(() => {
-    const el = $('#home-path'); if (!el) return;
-    const ps = PV.pinnedSummary();
-    el.innerHTML = ps
-      ? '<a class="panel pinned" href="#/paths/' + ps.p.id + '" style="--pc:' + ps.p.color + '"><p class="eyebrow">Your immigration path</p><h2>' + h(ps.p.name) + '</h2><div class="minimap" aria-hidden="true">' + ps.p.stops.map((s, i) => '<i class="' + (i < ps.done ? 'on' : '') + '"></i>').join('') + '</div><p>' + ps.done + ' of ' + ps.p.stops.length + ' stops done' + (ps.next ? ' · next: <b>' + h(ps.next.title) + '</b>' : '') + '</p></a>'
-      : '<a class="panel flat" href="#/paths" style="text-decoration:none;color:inherit"><div class="row between"><div><h3>Which immigration path fits you?</h3><p class="muted small">11 routes to permanent residence as step-by-step maps, with tips for applicants from Tunisia.</p></div><span class="btn">Find my path</span></div></a>';
-  }).catch(() => {});
-  for (const ex of ['ielts', 'tef']) {
-    api('GET', '/api/docs/' + ex + '/profile').then((r) => {
-      const d = r.data; const el = $('#sum-' + ex); if (!el || !d) return;
-      if (ex === 'ielts') { const b = d.bands || {}; el.innerHTML = '<p class="mono">L ' + (b.L ?? '–') + ' · R ' + (b.R ?? '–') + ' · W ' + (b.W ?? '–') + ' · S ' + (b.S ?? '–') + '</p><p class="small muted">' + (d.placementDone ? 'Target CLB ' + (d.clbTarget || 9) : 'Placement test not taken yet') + '</p>'; }
-      else { const s = d.scores || {}; el.innerHTML = '<p class="mono">CO ' + (s.L ?? '–') + ' · CE ' + (s.R ?? '–') + ' · EE ' + (s.W ?? '–') + ' · EO ' + (s.S ?? '–') + '</p><p class="small muted">' + (d.placementDone ? 'Objectif NCLC ' + (d.target || 7) : 'Test de positionnement à faire') + '</p>'; }
-    }).catch(() => {});
-  }
+  const act = (href, icon, title, sub, primary) => '<a class="action' + (primary ? ' primary' : '') + '" href="' + href + '"><span class="aic">' + icon + '</span><span class="atext"><b>' + h(title) + '</b>' + (sub ? '<span class="small muted">' + h(sub) + '</span>' : '') + '</span><span class="achev" aria-hidden="true">›</span></a>';
+  const [ie, te] = await Promise.all(['ielts', 'tef'].map((ex) => api('GET', '/api/docs/' + ex + '/profile').then((r) => r.data).catch(() => null)));
+  await PV.load().catch(() => {});
+  if (!$('#today')) return;
+  const acts = [];
+  if (ie && ie.activeAttemptId) acts.push(act('#/ielts', badge('EN', '#B4263A'), 'Resume your IELTS test', 'Your answers are saved', true));
+  if (te && te.activeAttemptId) acts.push(act('#/tef', badge('FR', '#1F4FA8'), 'Reprendre votre test TEF', 'Vos réponses sont enregistrées', true));
+  const ps = PV.pinnedSummary();
+  if (ps && ps.next) acts.push(act('#/paths/' + ps.p.id, svgI('map'), 'Next stop: ' + ps.next.title, ps.p.name + ' · ' + ps.done + ' of ' + ps.p.stops.length + ' done', !acts.length));
+  if (!ie || !ie.placementDone) acts.push(act('#/ielts', badge('EN', '#B4263A'), ie && ie.setupDone ? 'Take the IELTS placement test' : 'Set up your IELTS coach', 'About 2 h 50 min, with breaks', !acts.length));
+  else acts.push(act('#/ielts', badge('EN', '#B4263A'), 'Practise IELTS', 'Mock tests and your course', false));
+  if (!te || !te.placementDone) acts.push(act('#/tef', badge('FR', '#1F4FA8'), te && te.setupDone ? 'Passer le test de positionnement TEF' : 'Configurer votre coach TEF', 'Environ 2 h 55, avec pauses', false));
+  else acts.push(act('#/tef', badge('FR', '#1F4FA8'), 'S’entraîner au TEF', 'Tests blancs et parcours', false));
+  if (!ps) acts.push(act('#/paths', svgI('map'), 'Find your immigration path', '11 routes to PR as maps', false));
+  $('#today').innerHTML = acts.slice(0, 4).join('');
+  const put = (ex, d) => {
+    const el = $('#sum-' + ex); if (!el || !d) return;
+    if (ex === 'ielts') { const b = d.bands || {}; el.innerHTML = '<p class="mono">L ' + (b.L ?? '–') + ' · R ' + (b.R ?? '–') + ' · W ' + (b.W ?? '–') + ' · S ' + (b.S ?? '–') + '</p><p class="small muted">' + (d.placementDone ? 'Target CLB ' + (d.clbTarget || 9) : 'Placement test not taken yet') + '</p>'; }
+    else { const sc = d.scores || {}; el.innerHTML = '<p class="mono">CO ' + (sc.L ?? '–') + ' · CE ' + (sc.R ?? '–') + ' · EE ' + (sc.W ?? '–') + ' · EO ' + (sc.S ?? '–') + '</p><p class="small muted">' + (d.placementDone ? 'Objectif NCLC ' + (d.target || 7) : 'Test de positionnement à faire') + '</p>'; }
+  };
+  put('ielts', ie); put('tef', te);
+  const el = $('#home-path');
+  if (el && ps) el.innerHTML = '<a class="panel pinned" href="#/paths/' + ps.p.id + '" style="--pc:' + ps.p.color + '"><p class="eyebrow">Your immigration path</p><h2>' + h(ps.p.name) + '</h2>' + miniTrail(ps.p, ps.done) + '<p>' + ps.done + ' of ' + ps.p.stops.length + ' stops done' + (ps.next ? ' · next: <b>' + h(ps.next.title) + '</b>' : '') + '</p></a>';
 }
 function installPanel() {
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
