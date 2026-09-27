@@ -5,7 +5,8 @@ import { useApp } from '@/components/app/AppProvider';
 import { Page } from '@/components/app/Page';
 import { fmtDate } from '@/lib/client/format';
 import { t } from '@/lib/i18n';
-import { unescapeHtml } from '@/lib/i18n/react';
+import { tr, unescapeHtml } from '@/lib/i18n/react';
+import { ArrFwd } from '@/components/app/ui';
 
 export default function LegalPage() {
   const { config: c } = useApp();
@@ -33,7 +34,7 @@ export default function LegalPage() {
     <h2>{t('Why')}</h2><p>{t('To provide the service you signed up for: creating and marking your tests, building your course, managing your plan, and keeping accounting records.')}</p>
     <h2>{t('Transfers outside Tunisia')}</h2><p>{t('With your explicit consent at sign-up, your answers are sent to Google’s Gemini AI service to create and mark tests and to produce voices. Our database and hosting may also be located outside Tunisia. These transfers are subject to authorisation by the INPDP, which we request or hold as required.')}</p>
     <h2>{t('How long')}</h2><p>{t('We keep your study data while your account exists. When you delete your account, it is erased. Payment records are kept for the period required by Tunisian tax law.')}</p>
-    <h2>{t('Your rights')}</h2><p>{t('You can access and download your data ({where}), correct it, object to its processing on legitimate grounds, and delete your account at any time. You can also contact the INPDP.', { where: t('Account') + ' → ' + t('Download my data') })}</p>
+    <h2>{t('Your rights')}</h2><p>{tr('You can access and download your data ({where}), correct it, object to its processing on legitimate grounds, and delete your account at any time. You can also contact the INPDP.', { where: <>{t('Account')} <ArrFwd /> {t('Download my data')}</> })}</p>
     <h2>{t('Cookies and storage on your device')}</h2><p>{t('We use one essential cookie to keep you signed in. No advertising or tracking cookies.')}</p><p>{t('If you use the immigration paths or the score calculator without an account, your progress and answers are kept only in your browser\'s storage on this device; they are not sent to us. When you create an account, they are moved into it and removed from the device. You can clear them at any time by clearing this site\'s data in your browser.')}</p>
   </>;
   return <Page><div className="panel legal">{kind === 'terms' ? terms : privacy}</div></Page>;
