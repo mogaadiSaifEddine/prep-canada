@@ -281,7 +281,7 @@ details summary{cursor:pointer;font-weight:600}
 .layout{display:flex;min-height:100vh;min-height:100dvh}
 .layout>.shell{flex:1;min-width:0}
 .side{display:none}
-.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:15;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom,0px))}
 .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border-radius:10px;color:var(--muted);text-decoration:none;font:600 .7rem var(--body);min-height:48px;justify-content:center}
 .tabbar a svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .tabbar a[aria-current="page"]{color:var(--ink);background:var(--surface2)}
@@ -568,12 +568,12 @@ th{font:500 .7rem/1.3 var(--mono);letter-spacing:.06em}
 
 /* sidebar and tab bar */
 .xbadge{border-radius:7px;font:650 .66rem var(--mono)}
-.tabbar{background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:saturate(1.6) blur(14px);-webkit-backdrop-filter:saturate(1.6) blur(14px);border-top-color:var(--line)}
+.tabbar{background:color-mix(in srgb,var(--surface) 82%,transparent);backdrop-filter:saturate(1.6) blur(14px);border-top-color:var(--line)}
 .tabbar a{font-weight:550}
 .tabbar a[aria-current="page"]{color:var(--accent);background:transparent}
 .tabbar a[aria-current="page"] svg{filter:drop-shadow(0 4px 10px color-mix(in srgb,var(--accent) 45%,transparent))}
 .tabbar a[aria-current="page"] .xbadge{outline:2px solid var(--accent)}
-.modhead{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.modhead{background:color-mix(in srgb,var(--bg) 85%,transparent);backdrop-filter:blur(12px)}
 @media (min-width:900px){
   .side{background:var(--surface);gap:22px}
   :root[data-theme="dark"] .side{background:color-mix(in srgb,var(--bg) 60%,var(--surface))}
@@ -640,7 +640,7 @@ th{font:500 .7rem/1.3 var(--mono);letter-spacing:.06em}
 .meter{background:var(--surface2);box-shadow:inset 0 0 0 1px var(--line)}
 .msg{border-radius:16px}
 .mapwrap{border-radius:20px;box-shadow:var(--shadow)}
-#stopdrawer .dr-backdrop{background:rgba(5,9,18,.5);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+#stopdrawer .dr-backdrop{background:rgba(5,9,18,.5);backdrop-filter:blur(2px)}
 #stopdrawer .drawer{box-shadow:var(--shadow-lg)}
 .cset legend{font-weight:650;letter-spacing:-.015em}
 .stoptitle{font-weight:650;letter-spacing:-.015em}
@@ -655,3 +655,5 @@ th{font:500 .7rem/1.3 var(--mono);letter-spacing:.06em}
 @media (prefers-reduced-motion: reduce){.btn,.examcard,.pathcard,.action,.tool{transition:none}.examcard:hover,.pathcard:hover{transform:none}}
 a.pill{text-decoration:none}
 .crow>:last-child,.fswline .mono,.cutline .mono{white-space:nowrap;flex:none}
+/* The cut-off line on a path card may wrap on narrow phones (long Arabic dates) instead of overflowing */
+.cutline .mono{white-space:normal;flex:0 1 auto;min-width:0}

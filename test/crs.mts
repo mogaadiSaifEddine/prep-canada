@@ -1,7 +1,8 @@
-// CRS / FSW / draws parsing checks. node test/crs.mjs
-import { crs, fsw, boosts, poolAbove } from '../public/js/crs.js';
-import { parseFeed, eeCategory, BUNDLED } from '../lib/draws.js';
-import { estimate, costFor, recent } from '../public/js/scoretools.js';
+// @ts-nocheck -- test fixtures pass partial profiles and paths on purpose
+// CRS / FSW / draws parsing checks. npm run test:crs
+import { crs, fsw, boosts, poolAbove } from '../lib/shared/crs';
+import { parseFeed, eeCategory, BUNDLED } from '../lib/server/draws';
+import { estimate, costFor, recent } from '../lib/shared/scoretools';
 
 let fails = 0;
 const eq = (name, got, want) => { const ok = got === want; if (!ok) fails++; console.log((ok ? '✓ ' : '✗ ') + name + (ok ? '' : ' — got ' + got + ', want ' + want)); };

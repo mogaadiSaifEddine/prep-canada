@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '@/components/app/AppProvider';
 import { Page } from '@/components/app/Page';
 import { ArrBack, ArrFwd, Loading, Nm } from '@/components/app/ui';
@@ -142,7 +143,8 @@ function StopDrawer({ p, sid, onOpen, onClose, onToggle }: { p: Path; sid: strin
   const i = shown ? p.stops.findIndex((s) => s.id === shown) : -1;
   const s = i >= 0 ? p.stops[i] : null;
   const done = !!s && !!(PV.journey().progress[p.id] || {})[s.id];
-  return (
+  // On <body>, as before: inside the main column the fixed backdrop is clipped by its stacking context.
+  return createPortal(
     <div id="stopdrawer" className={open && s ? 'open' : ''}>
       {s ? <>
         <div className="dr-backdrop" data-sa="close-stop" onClick={onClose} />
@@ -157,6 +159,7 @@ function StopDrawer({ p, sid, onOpen, onClose, onToggle }: { p: Path; sid: strin
           </div>
         </aside>
       </> : null}
-    </div>
+    </div>,
+    document.body
   );
 }

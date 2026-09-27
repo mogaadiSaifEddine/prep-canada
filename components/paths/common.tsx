@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useApp } from '@/components/app/AppProvider';
 import * as PV from '@/lib/client/paths-store';
-import { fmtNum, t } from '@/lib/i18n';
+import { fmtNum, t, tk } from '@/lib/i18n';
 import { tr } from '@/lib/i18n/react';
 import type { Path, Stop } from '@/lib/paths/types';
 import { allAtLeast, estimate, lastCutLine, PATH_DRAWS } from '@/lib/shared/scoretools';
@@ -52,7 +52,7 @@ export function estPillInfo(p: Path): [string, string] | null {
   const pr = PV.profile(); const lv = PV.state.levels;
   if (!pr && !(lv && (lv.frDetail || lv.enDetail))) return null;
   const e = estimate(p, pr, PV.state.draws, lv);
-  const map: Record<string, [string, string]> = { good: ['good', 'Likely'], close: ['warn', 'Possible'], far: ['bad', 'Hard now'], blocked: ['', 'Not eligible yet'] };
+  const map: Record<string, [string, string]> = { good: ['good', tk('Likely')], close: ['warn', tk('Possible')], far: ['bad', tk('Hard now')], blocked: ['', tk('Not eligible yet')] };
   return map[e.status] || null;
 }
 export function EstPill({ p }: { p: Path }) {

@@ -136,8 +136,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // New page: close the upgrade prompt and leave the test "focus" mode.
-  useEffect(() => { setUpsellMsg(null); setFocus(false); }, [pathname]);
+  // New page: close the upgrade prompt. (The coach pages leave "focus" mode when they unmount.)
+  useEffect(() => { setUpsellMsg(null); }, [pathname]);
 
   const value = useMemo<AppCtx>(() => ({
     ready, me, ent, config, setup, lang, focus, billing, installEvt,

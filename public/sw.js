@@ -1,20 +1,25 @@
-// Offline shell: static files are served from cache and refreshed in the background.
-// API calls always go to the network.
-const VERSION = 'pc-v9';
-const SHELL = ['/', '/index.html', '/styles.css', '/js/main.js', '/js/ielts.js', '/js/tef.js', '/js/paths.js', '/js/pathsview.js', '/js/pathmap.js', '/js/crs.js', '/js/scoretools.js', '/js/i18n.js', '/js/i18n/fr.js', '/js/i18n/ar.js', '/js/paths.fr.js', '/js/paths.ar.js', '/js/palette.js', '/js/theme.js', '/fonts/geist-latin-wght-normal.woff2', '/fonts/geist-latin-ext-wght-normal.woff2', '/fonts/geist-mono-latin-wght-normal.woff2', '/manifest.webmanifest', '/icons/icon-192.png'];
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
+// Offline support for the Next.js build.
+// - /_next/static/* files are content-hashed: cache first, keep forever.
+// - Pages: network first, the last copy when offline (the app shell then loads from cache).
+// - /api/draws: network first, last copy when offline. Other API calls always go to the network.
+const VERSION = 'pc-next-1';
+const PRECACHE = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/fonts/geist-latin-wght-normal.woff2', '/fonts/geist-latin-ext-wght-normal.woff2', '/fonts/geist-mono-latin-wght-normal.woff2'];
+
+self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(PRECACHE)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
+
+const networkFirst = (req, fallback) => caches.open(VERSION).then((cache) => fetch(req)
+  .then((r) => { if (r.ok) cache.put(req, r.clone()); return r; })
+  .catch(() => cache.match(req, { ignoreSearch: true }).then((m) => m || (fallback ? cache.match(fallback) : null)).then((m) => m || Response.error())));
+
 self.addEventListener('fetch', (e) => {
-  const url = new URL(e.request.url);
-  if (e.request.method === 'GET' && url.pathname === '/api/draws') {
-    // Network first, last copy when offline
-    e.respondWith(caches.open(VERSION).then((cache) => fetch(e.request).then((r) => { if (r.ok) cache.put(e.request, r.clone()); return r; }).catch(() => cache.match(e.request).then((m) => m || Response.error()))));
+  const req = e.request; const url = new URL(req.url);
+  if (req.method !== 'GET' || url.origin !== location.origin) return;
+  if (url.pathname === '/api/draws') { e.respondWith(networkFirst(req)); return; }
+  if (url.pathname.startsWith('/api/')) return;
+  if (url.pathname.startsWith('/_next/static/') || url.pathname.startsWith('/fonts/') || url.pathname.startsWith('/icons/')) {
+    e.respondWith(caches.open(VERSION).then((cache) => cache.match(req).then((hit) => hit || fetch(req).then((r) => { if (r.ok) cache.put(req, r.clone()); return r; }))));
     return;
   }
-  if (e.request.method !== 'GET' || url.origin !== location.origin || url.pathname.startsWith('/api/')) return;
-  e.respondWith(caches.open(VERSION).then(async (cache) => {
-    const hit = await cache.match(e.request, { ignoreSearch: true });
-    const net = fetch(e.request).then((r) => { if (r.ok) cache.put(e.request, r.clone()); return r; }).catch(() => hit || cache.match('/index.html'));
-    return hit || net;
-  }));
+  if (req.mode === 'navigate') { e.respondWith(networkFirst(req, '/')); return; }
 });

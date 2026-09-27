@@ -1,5 +1,5 @@
 // End-to-end check against a local server running with GEMINI_MOCK=1 PAYMENTS_MOCK=1.
-// NODE_PATH=$(npm root -g) node test/e2e.cjs
+// npm run build && ./scripts/devserver.sh && NODE_PATH=$(npm root -g) node test/e2e.cjs
 const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://localhost:3100';
 const shots = process.env.SHOTS || '/tmp/pc-shots';
@@ -18,14 +18,14 @@ require('fs').mkdirSync(shots, { recursive: true });
 
   await step('landing', async () => { await page.goto(BASE + '/'); await page.waitForSelector('text=Reach your CLB target'); await shot('01-landing'); });
   await step('signup', async () => {
-    await page.goto(BASE + '/#/signup');
+    await page.goto(BASE + '/signup');
     await page.fill('#s-name', 'Saif Mogaadi'); await page.fill('#s-email', 'admin@x.tn'); await page.fill('#s-pass', 'secret123');
     await click('button[type=submit]'); await page.waitForSelector('#s-err:not([hidden])'); // consent missing
     await page.check('#s-consent'); await click('button[type=submit]');
     await page.waitForSelector('text=Welcome, Saif'); await shot('02-home');
   });
   await step('ielts setup', async () => {
-    await page.goto(BASE + '/#/ielts'); await page.waitForSelector('text=Set up your IELTS coach');
+    await page.goto(BASE + '/ielts'); await page.waitForSelector('text=Set up your IELTS coach');
     await page.selectOption('#set-target', '9'); await page.fill('#set-about', 'Software developer in Tunisia');
     await click('[data-act=savesettings]'); await page.waitForSelector('text=Find your real starting level'); await shot('03-ielts-home');
   });
@@ -64,7 +64,7 @@ require('fs').mkdirSync(shots, { recursive: true });
     await page.waitForSelector('text=Progress card', { timeout: 20000 }); await shot('07-report');
   });
   await step('free quota blocks second mock', async () => {
-    await page.goto(BASE + '/#/ielts'); await click('[data-nav=tests]'); await page.check('input[name=mtype][value=L]', { force: true });
+    await page.goto(BASE + '/ielts'); await click('[data-nav=tests]'); await page.check('input[name=mtype][value=L]', { force: true });
     await click('[data-act=mock]'); await page.waitForSelector('[data-act=start]:not([disabled])', { timeout: 20000 });
     await click('[data-act=leave]');
     await click('[data-act=discard]'); await click('[data-act=discard-yes]');
@@ -73,26 +73,26 @@ require('fs').mkdirSync(shots, { recursive: true });
   });
   await step('course is gated on free', async () => { await click('[data-nav=course]'); await page.waitForSelector('text=Your personal course'); });
   await step('buy Duo with Konnect (mock)', async () => {
-    await page.goto(BASE + '/#/plans'); await page.waitForSelector('text=Choose how you prepare'); await shot('09-plans');
+    await page.goto(BASE + '/plans'); await page.waitForSelector('text=Choose how you prepare'); await shot('09-plans');
     await click('[data-sa=choose][data-plan=duo]'); await page.check('input[name=paymethod][value=konnect]', { force: true });
     await shot('10-checkout');
     await click('[data-sa=pay]'); await page.waitForSelector('text=You’re on Duo', { timeout: 20000 }); await shot('11-paid');
   });
   await step('manual payment + admin approve', async () => {
-    await page.goto(BASE + '/#/plans'); await click('[data-sa=period][data-p=year]'); await click('[data-sa=choose][data-plan=duo]');
+    await page.goto(BASE + '/plans'); await click('[data-sa=period][data-p=year]'); await click('[data-sa=choose][data-plan=duo]');
     await page.check('input[name=paymethod][value=manual]', { force: true }); await page.fill('#pay-ref', 'D17-99812');
     await click('[data-sa=pay]'); await page.waitForSelector('text=Waiting for activation');
-    await page.goto(BASE + '/#/admin'); await page.waitForSelector('text=D17-99812'); await shot('12-admin');
+    await page.goto(BASE + '/admin'); await page.waitForSelector('text=D17-99812'); await shot('12-admin');
     await click('[data-sa=adm-approve]'); await page.waitForSelector('text=Nothing here.');
   });
   await step('course + lesson', async () => {
-    await page.goto(BASE + '/#/ielts'); await page.reload(); await click('[data-nav=course]');
+    await page.goto(BASE + '/ielts'); await page.reload(); await click('[data-nav=course]');
     await page.waitForSelector('[data-act=build]'); await click('[data-act=build]'); await page.waitForSelector('.unit', { timeout: 20000 }); await shot('13-course');
     await click('.unit >> nth=0'); await page.waitForSelector('text=Quiz', { timeout: 20000 });
     await click('[data-act=checkquiz]'); await page.waitForSelector('text=70% to pass'); await shot('14-lesson');
   });
   await step('tef setup + listening with studio voices', async () => {
-    await page.goto(BASE + '/#/tef'); await page.waitForSelector('text=Configurez votre coach TEF');
+    await page.goto(BASE + '/tef'); await page.waitForSelector('text=Configurez votre coach TEF');
     await click('[data-act=savesettings]'); await page.waitForSelector('text=Trouvez votre vrai niveau');
     await click('[data-act=placement]'); await page.waitForSelector('[data-act=start]:not([disabled])', { timeout: 20000 });
     await click('[data-act=start]'); await page.waitForSelector('[data-act=play]');
@@ -100,7 +100,7 @@ require('fs').mkdirSync(shots, { recursive: true });
     await page.waitForSelector('text=Écouté', { timeout: 30000 }); await shot('15-tef-listening');
   });
   await step('tef speaking examiner', async () => {
-    await page.goto(BASE + '/#/tef'); await page.reload(); await page.waitForSelector('[data-act=discard]');
+    await page.goto(BASE + '/tef'); await page.reload(); await page.waitForSelector('[data-act=discard]');
     await click('[data-act=discard]'); await click('[data-act=discard-yes]');
     await click('[data-nav=tests]'); await page.check('input[name=mtype][value=S]', { force: true });
     await click('[data-act=mock]'); await page.waitForSelector('[data-act=start]:not([disabled])', { timeout: 20000 });
@@ -115,12 +115,16 @@ require('fs').mkdirSync(shots, { recursive: true });
     await page.waitForSelector('text=Bilan', { timeout: 20000 }); await shot('17-tef-report');
   });
   await step('account + receipt', async () => {
-    await page.goto(BASE + '/#/account'); await page.waitForSelector('[data-sa=receipt]'); await shot('18-account');
+    await page.goto(BASE + '/account'); await page.waitForSelector('[data-sa=receipt]'); await shot('18-account');
     await click('[data-sa=receipt]'); await page.waitForSelector('text=VAT 19%'); await shot('19-receipt');
+  });
+  await step('old #/ links still work', async () => {
+    await page.goto(BASE + '/#/plans'); await page.waitForURL(BASE + '/plans'); await page.waitForSelector('text=Choose how you prepare');
+    await page.goto(BASE + '/#/paths/score'); await page.waitForURL(BASE + '/paths/score'); await page.waitForSelector('#f-crs');
   });
   await step('phone layout', async () => {
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const [n, hsh] of [['20-m-home', '/#/'], ['21-m-ielts', '/#/ielts'], ['22-m-plans', '/#/plans']]) {
+    for (const [n, hsh] of [['20-m-home', '/'], ['21-m-ielts', '/ielts'], ['22-m-plans', '/plans']]) {
       await page.goto(BASE + hsh); await page.waitForTimeout(700);
       const ov = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
       if (ov > 1) throw new Error(n + ' scrolls sideways by ' + ov + 'px');
