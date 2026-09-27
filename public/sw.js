@@ -1,6 +1,6 @@
 // Offline shell: static files are served from cache and refreshed in the background.
 // API calls always go to the network.
-const VERSION = 'pc-v6';
+const VERSION = 'pc-v7';
 const SHELL = ['/', '/index.html', '/styles.css', '/js/main.js', '/js/ielts.js', '/js/tef.js', '/js/paths.js', '/js/pathsview.js', '/js/pathmap.js', '/js/crs.js', '/js/scoretools.js', '/manifest.webmanifest', '/icons/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

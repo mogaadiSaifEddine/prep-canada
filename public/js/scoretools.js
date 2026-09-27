@@ -103,7 +103,7 @@ export function calculatorHtml(p, { levels, draws, signedIn, saved }) {
       check('offer', 'Valid job offer (arranged employment)', p.offer, 'No CRS points since March 2025, but still 10 + 5 points on the FSW grid.') +
       check('relative', 'Close relative in Canada (citizen or PR)', p.relative, 'FSW adaptability points only.') +
     '</fieldset>' +
-    '<p class="small muted">' + (signedIn ? (saved ? 'Saved to your account.' : 'Changes are saved to your account.') : '<a href="#/signup">Create a free account</a> to save your profile and see estimates on every path.') + '</p>' +
+    '<p class="small muted">' + (signedIn ? 'Changes are saved to your account.' : 'Saved on this device as you type. <a href="#/signup">Create a free account</a> to keep it on all your devices.') + '</p>' +
     '</form>';
   return '<div><a class="btn sm ghost" href="#/paths">← All paths</a></div>' +
     '<div><p class="eyebrow">Express Entry</p><h1>Score calculator</h1><p class="muted" style="max-width:70ch">Your Comprehensive Ranking System (CRS) score out of 1,200 and your Federal Skilled Worker grid out of 100, compared with the latest invitation rounds. Official grids in force on 27 September 2026.</p></div>' +
@@ -310,5 +310,5 @@ export function estimateHtml(p, prof, draws, levels, signedIn) {
     (e.title ? '<p class="est-title"><span class="pill ' + cls + '">' + icon + '</span> <b>' + h(e.title) + '</b></p>' : '') +
     (e.lines.length ? '<ul class="small est-lines">' + e.lines.map((l) => '<li>' + h(l) + '</li>').join('') + '</ul>' : '') +
     '<div class="est-grid"><div><b class="small">Timeline</b><p class="small">' + h(p.time) + (prof && p.lang && p.lang.exam === 'tef' && !allAtLeast(prof.fr, p.lang.min) ? ', plus 2–6 months to reach NCLC ' + p.lang.min : '') + '</p>' + (cut ? '<p class="small"><b>Latest invitations:</b> ' + h(cut) + ' · <a href="#/paths/draws' + (PATH_DRAWS[p.id] ? '?c=' + PATH_DRAWS[p.id] : p.id === 'quebec' ? '?g=quebec' : '') + '">see rounds</a></p>' : '') + '</div>' + cost + '</div>' +
-    (!prof && !signedIn ? '<p class="small muted">Your profile stays on this device until you create an account.</p>' : '') + '</div>';
+    (prof && !signedIn ? '<p class="small muted">Saved on this device. <a href="#/signup">Create an account</a> to keep it.</p>' : '') + '</div>';
 }

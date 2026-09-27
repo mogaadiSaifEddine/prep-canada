@@ -4,9 +4,31 @@ import { renderMap, miniTrail } from './pathmap.js';
 import { calculatorHtml, resultHtml, readForm, defaultProfile, fillFromTests, drawsHtml, estimateHtml, estimate, lastCutLine, recent } from './scoretools.js';
 import { crs } from './crs.js';
 
-const LS = 'pc_profile';
-const lsGet = () => { try { return JSON.parse(localStorage.getItem(LS) || 'null'); } catch { return null; } };
-const lsSet = (v) => { try { localStorage.setItem(LS, JSON.stringify(v)); } catch { /* private mode */ } };
+// Visitors: everything they do on the paths (ticked stops, chosen path, finder answers, score profile)
+// is kept on this device, then moved into the account when they sign up.
+const LS = 'pc_journey';
+const emptyJourney = () => ({ progress: {}, pinned: null, finder: null, profile: null });
+function readLocal() {
+  let j = null;
+  try { j = JSON.parse(localStorage.getItem(LS) || 'null'); } catch { j = null; }
+  if (!j || typeof j !== 'object') j = emptyJourney();
+  j.progress = j.progress && typeof j.progress === 'object' ? j.progress : {};
+  try { const old = JSON.parse(localStorage.getItem('pc_profile') || 'null'); if (old && !j.profile) j.profile = old; localStorage.removeItem('pc_profile'); } catch { /* ignore */ }
+  return j;
+}
+function writeLocal(j) { try { localStorage.setItem(LS, JSON.stringify({ ...j, savedAt: new Date().toISOString() })); return true; } catch { return false; } }
+function clearLocal() { try { localStorage.removeItem(LS); localStorage.removeItem('pc_profile'); } catch { /* ignore */ } }
+const hasData = (j) => !!j && (Object.values(j.progress || {}).some((p) => p && Object.keys(p).length) || !!j.pinned || !!j.finder || !!j.profile);
+// Combine two journeys without losing anything: stops done in either, the account's choices first.
+export function mergeJourney(acc, loc) {
+  const a = acc || emptyJourney(), l = loc || emptyJourney();
+  const progress = JSON.parse(JSON.stringify(a.progress || {}));
+  for (const [pid, stops] of Object.entries(l.progress || {})) {
+    const into = progress[pid] || (progress[pid] = {});
+    for (const [sid, date] of Object.entries(stops || {})) if (!into[sid] || String(date) < String(into[sid])) into[sid] = date;
+  }
+  return { ...l, ...a, progress, pinned: a.pinned || l.pinned || null, finder: a.finder || l.finder || null, profile: a.profile || l.profile || null };
+}
 
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -24,10 +46,13 @@ export function createPaths(ctx) {
     return st.draws;
   }
   // The score profile: saved in the account, or on this device for visitors
-  const profile = () => (ctx.me() ? journey().profile : lsGet()) || null;
-  function setProfile(p) { if (ctx.me()) { journey().profile = p; save(); } else lsSet(p); }
+  const profile = () => journey().profile || null;
+  function setProfile(p) { journey().profile = p; save(); }
   function load() {
-    if (!ctx.me()) return Promise.resolve();
+    if (!ctx.me()) {
+      if (!st.visitor) { st.journey = readLocal(); st.finder = st.journey.finder || null; st.visitor = true; }
+      return Promise.resolve();
+    }
     if (!st.loading) st.loading = doLoad().catch((e) => { st.loading = null; throw e; });
     return st.loading;
   }
@@ -44,13 +69,26 @@ export function createPaths(ctx) {
     if (ie && ie.bands && ['L', 'R', 'W', 'S'].every((k) => ie.bands[k] != null)) { const d = {}; ['L', 'R', 'W', 'S'].forEach((k) => { d[k] = lvl(IELTS_CLB, k, ie.bands[k]); }); lv.en = Math.min(...Object.values(d)); lv.enDetail = d; }
     if (te && te.scores && ['L', 'R', 'W', 'S'].every((k) => te.scores[k] != null)) { const d = {}; ['L', 'R', 'W', 'S'].forEach((k) => { d[k] = lvl(TEF_NCLC, k, te.scores[k]); }); lv.fr = Math.min(...Object.values(d)); lv.frDetail = d; }
     st.levels = lv;
-    // First time signed in: bring over a profile made as a visitor
-    if (!st.journey.profile) { const v = lsGet(); if (v) { st.journey.profile = v; save(); } }
+  }
+  // Called right after sign-up (always) or login (only if the account has no paths data yet).
+  async function adoptVisitorData(mode) {
+    const loc = readLocal();
+    if (!hasData(loc)) return false;
+    const acc = await ctx.getDoc('journey', 'progress').catch(() => null);
+    if (mode !== 'signup' && hasData(acc)) return false; // an existing account keeps its own data
+    await ctx.putDoc('journey', 'progress', mergeJourney(acc, loc));
+    clearLocal();
+    st.loading = null; st.loaded = false; st.journey = null;
+    return true;
   }
   const journey = () => st.journey || (st.journey = { progress: {}, pinned: null, finder: null });
   let saveT = null;
   function save() {
-    if (!ctx.me()) return;
+    if (!ctx.me()) {
+      if (!writeLocal(journey())) ctx.toast('This browser blocks saving (private mode?). Create a free account to keep your progress.');
+      else if (!st.toldLocal) { st.toldLocal = true; setTimeout(() => ctx.toast('Saved on this device. Create a free account to keep it everywhere.'), 1400); }
+      return;
+    }
     clearTimeout(saveT);
     saveT = setTimeout(() => ctx.putDoc('journey', 'progress', journey()).catch(() => ctx.toast('Your progress could not be saved. Check your connection.')), 600);
   }
@@ -126,7 +164,7 @@ export function createPaths(ctx) {
       finderHtml() +
       '<div class="pathgrid">' + cards + '</div>' +
       '<div class="panel flat"><h3>Paused programs</h3><ul style="margin:0;padding-left:18px;display:flex;flex-direction:column;gap:6px">' + PAUSED.map((x) => '<li><b>' + h(x.name) + '.</b> ' + h(x.note) + ' <a href="' + x.link + '" target="_blank" rel="noopener">Official page</a></li>').join('') + '</ul></div>' +
-      disclaimer() + (me ? '' : '<p class="small muted"><a href="#/signup">Create a free account</a> to save your progress on each map.</p>');
+      disclaimer() + (me ? '' : '<p class="small muted">Your progress is saved on this device. <a href="#/signup">Create a free account</a> to keep it on all your devices.</p>');
   }
   const cutLine = (p) => (st.draws ? lastCutLine(p, st.draws) : '');
   function estPill(p) {
@@ -193,7 +231,7 @@ export function createPaths(ctx) {
       '<div class="row" style="gap:8px"><span class="chip">⏱ ' + h(p.time) + '</span><span class="chip">' + h(p.cost) + '</span>' + (p.lang ? '<span class="chip">' + langLine(p) + '</span>' : '') + '</div>' +
       '<div class="stack" style="gap:6px"><div class="row between small"><span><b>' + d + '</b> of ' + p.stops.length + ' stops done' + (nx ? ' · next: <b>' + h(nx.title) + '</b>' : ' · all done') + '</span><span class="mono">' + pct + '%</span></div><div class="meter"><i style="width:' + pct + '%;background:' + p.color + '"></i></div></div>' +
       estHead(p) +
-      '<div class="row">' + (nx ? '<button class="btn primary" data-sa="open-stop" data-stop="' + nx.id + '" style="background:' + p.color + ';border-color:' + p.color + '">Open next stop</button>' : '') + (ctx.me() ? '<button class="btn" data-sa="pin-path" data-path="' + p.id + '">' + (isPinned ? 'My path ✓' : 'Make this my path') + '</button>' : '<a class="btn" href="#/signup">Sign up to save progress</a>') + '</div>' +
+      '<div class="row">' + (nx ? '<button class="btn primary" data-sa="open-stop" data-stop="' + nx.id + '" style="background:' + p.color + ';border-color:' + p.color + '">Open next stop</button>' : '') + (ctx.me() ? '<button class="btn" data-sa="pin-path" data-path="' + p.id + '">' + (isPinned ? 'My path ✓' : 'Make this my path') + '</button>' : '<a class="btn" href="#/signup">Keep it in an account</a>') + '</div>' +
       '<details class="about"><summary>Who it\'s for and what\'s new in 2026</summary><div class="grid" style="margin-top:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))"><div><b class="small">Who it\'s for</b><ul class="small" style="margin:6px 0 0;padding-left:18px">' + p.who.map((x) => '<li>' + h(x) + '</li>').join('') + '</ul></div>' + (p.facts && p.facts.length ? '<div><b class="small">Good to know in 2026</b><ul class="small" style="margin:6px 0 0;padding-left:18px">' + p.facts.map((x) => '<li>' + h(x) + '</li>').join('') + '</ul></div>' : '') + '</div></details></div>';
     let body;
     if (st.view === 'map') {
@@ -264,6 +302,7 @@ export function createPaths(ctx) {
       const j = i + (e.key === 'ArrowRight' ? 1 : -1); if (p.stops[j]) openStop(p.stops[j].id);
     }
   });
+  window.addEventListener('hashchange', () => { if (st.openStop) closeStop(); });
   let lastW = 0;
   window.addEventListener('resize', () => {
     clearTimeout(st.rz); st.rz = setTimeout(() => {
@@ -308,7 +347,6 @@ export function createPaths(ctx) {
       if (!journey().pinned) journey().pinned = pid;
       save();
       const y = window.scrollY; ctx.render('paths', detail(pid)); window.scrollTo(0, y);
-      if (!ctx.me()) ctx.toast('Sign in to keep your progress.');
       if (st.openStop) {
         const p = PATHS.find((x) => x.id === pid); const i = p.stops.findIndex((x) => x.id === sid);
         if (pr[sid] && p.stops[i + 1]) { ctx.toast('Stop ' + (i + 1) + ' done.'); openStop(p.stops[i + 1].id); } else openStop(sid);
@@ -341,5 +379,5 @@ export function createPaths(ctx) {
     const p = PATHS.find((x) => x.id === j.pinned); if (!p) return null;
     return { p, done: doneCount(p), next: nextStop(p) };
   }
-  return { show, onClick, onSubmit, onInput, load, loadDraws, profile, score: () => { const p = profile(); return p ? crs(p).total : null; }, frenchCut: () => { const r = st.draws && recent(st.draws, 'french'); return r && r.last; }, cecCut: () => { const r = st.draws && recent(st.draws, 'cec'); return r && r.last; }, pinnedSummary, reset: () => { st.loaded = false; st.loading = null; st.journey = null; st.levels = null; st.finder = null; } };
+  return { show, onClick, onSubmit, onInput, load, loadDraws, profile, score: () => { const p = profile(); return p ? crs(p).total : null; }, frenchCut: () => { const r = st.draws && recent(st.draws, 'french'); return r && r.last; }, cecCut: () => { const r = st.draws && recent(st.draws, 'cec'); return r && r.last; }, pinnedSummary, adoptVisitorData, reset: () => { st.loaded = false; st.loading = null; st.visitor = false; st.journey = null; st.levels = null; st.finder = null; } };
 }

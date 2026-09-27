@@ -496,7 +496,7 @@ function viewLegal(kind) {
     '<h2>Transfers outside Tunisia</h2><p>With your explicit consent at sign-up, your answers are sent to Google’s Gemini AI service to create and mark tests and to produce voices. Our database and hosting may also be located outside Tunisia. These transfers are subject to authorisation by the INPDP, which we request or hold as required.</p>' +
     '<h2>How long</h2><p>We keep your study data while your account exists. When you delete your account, it is erased. Payment records are kept for the period required by Tunisian tax law.</p>' +
     '<h2>Your rights</h2><p>You can access and download your data (Account › Download my data), correct it, object to its processing on legitimate grounds, and delete your account at any time. You can also contact the INPDP.</p>' +
-    '<h2>Cookies</h2><p>We use one essential cookie to keep you signed in. No advertising or tracking cookies.</p>';
+    '<h2>Cookies and storage on your device</h2><p>We use one essential cookie to keep you signed in. No advertising or tracking cookies.</p><p>If you use the immigration paths or the score calculator without an account, your progress and answers are kept only in your browser\'s storage on this device; they are not sent to us. When you create an account, they are moved into it and removed from the device. You can clear them at any time by clearing this site\'s data in your browser.</p>';
   page('legal', '<div class="panel legal">' + (kind === 'terms' ? terms : privacy) + '</div>');
 }
 
@@ -543,10 +543,13 @@ document.addEventListener('submit', async (e) => {
   try {
     if (f.id === 'f-login') {
       await api('POST', '/api/auth/login', { email: $('#l-email').value, password: $('#l-pass').value });
-      await loadMe(); const nx = $('#l-next').value; go(nx && nx.startsWith('/') ? nx : '/');
+      await loadMe();
+      if (await PV.adoptVisitorData('login').catch(() => false)) toast('Your paths and score from this device were added to your account.'); const nx = $('#l-next').value; go(nx && nx.startsWith('/') ? nx : '/');
     } else if (f.id === 'f-signup') {
       await api('POST', '/api/auth/signup', { name: $('#s-name').value, email: $('#s-email').value, password: $('#s-pass').value, consent: $('#s-consent').checked });
-      await loadMe(); go('/');
+      await loadMe();
+      if (await PV.adoptVisitorData('signup').catch(() => false)) toast('Your paths and score are now saved in your account.');
+      go('/');
     } else if (f.id === 'f-forgot') {
       const r = await api('POST', '/api/auth/forgot', { email: $('#fg-email').value });
       const m = $('#fg-msg'); m.hidden = false;
