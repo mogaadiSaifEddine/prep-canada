@@ -21,7 +21,7 @@ Plans are Free, Solo and Duo, paid in TND through Konnect, Flouci or manual D17/
 | `lib/db.js` | Postgres. The tables are created on the first request. |
 
 **Free plan:** one placement test per exam, one mock test a month, and device voices for Listening.
-**Solo (one exam) and Duo (both exams):** unlimited mocks (fair use: 6 per day), the course, and studio voices.
+**Solo (one exam) and Duo (both exams):** 60 test sections a month per exam (15 full tests; fair use 6 new tests a day), the course, and studio voices.
 
 ## Caching and cost control
 
