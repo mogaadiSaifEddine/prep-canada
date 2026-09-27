@@ -679,5 +679,6 @@ export default {
   "…": "…",
   "You have started {n} tests in the last 24 hours. Fair-use limit reached; try again tomorrow.": "لقد بدأت {n} اختبارات خلال الـ24 ساعة الماضية. بلغت حدّ الاستخدام المعقول، حاول مجددًا غدًا.",
   "You have used all {max} test sections this month. It resets on the 1st.": "لقد استخدمت كل أقسام الاختبار الـ{max} لهذا الشهر. يُعاد العدّ في اليوم الأول من الشهر.",
-  "You have used {used} of your {max} test sections this month, not enough for this test. Try a single-skill test. It resets on the 1st.": "لقد استخدمت {used} من أصل {max} قسمًا من أقسام الاختبار هذا الشهر، وما تبقّى لا يكفي لهذا الاختبار. جرّب اختبارًا لمهارة واحدة. يُعاد العدّ في اليوم الأول من الشهر."
+  "You have used {used} of your {max} test sections this month, not enough for this test. Try a single-skill test. It resets on the 1st.": "لقد استخدمت {used} من أصل {max} قسمًا من أقسام الاختبار هذا الشهر، وما تبقّى لا يكفي لهذا الاختبار. جرّب اختبارًا لمهارة واحدة. يُعاد العدّ في اليوم الأول من الشهر.",
+  'Light or dark theme': 'المظهر الفاتح أو الداكن'
 };

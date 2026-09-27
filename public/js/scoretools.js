@@ -1,4 +1,5 @@
 // Score calculator, latest invitation rounds and per-path estimates (HTML builders, no state).
+import { hue } from './palette.js';
 import { crs, fsw, boosts, poolAbove, EDU, IELTS_CLB, TEF_NCLC } from './crs.js';
 import { t, tk, fmtDay, fmtNum } from './i18n.js';
 
@@ -14,7 +15,8 @@ const tl = (opts) => opts.map(([v, l]) => [v, t(l)]); // translate the labels of
 export const CAT_LABEL = {
   french: tk('French-language'), cec: tk('Canadian Experience Class'), pnp: tk('Provincial nominees'), health: tk('Healthcare & social services'), trades: tk('Trades'), transport: tk('Transport'), stem: tk('STEM'), education: tk('Education'), agri: tk('Agriculture'), physicians: tk('Physicians (Cdn exp.)'), senior: tk('Senior managers (Cdn exp.)'), military: tk('Military recruits'), fsw: tk('Federal Skilled Worker'), general: tk('General'), other: tk('Other')
 };
-export const CAT_COLOR = { french: '#1F4FA8', cec: '#1D7650', pnp: '#8A5A00', health: '#9D174D', trades: '#B45309', transport: '#155E75', stem: '#6A4BC4', education: '#4D7C0F', agri: '#65731B', physicians: '#9D174D', senior: '#475569', military: '#475569', fsw: '#B4263A', general: '#B4263A', other: '#475569' };
+const CAT_HEX = { french: '#1F4FA8', cec: '#1D7650', pnp: '#8A5A00', health: '#9D174D', trades: '#B45309', transport: '#155E75', stem: '#6A4BC4', education: '#4D7C0F', agri: '#65731B', physicians: '#9D174D', senior: '#475569', military: '#475569', fsw: '#B4263A', general: '#B4263A', other: '#475569' };
+export const CAT_COLOR = Object.fromEntries(Object.entries(CAT_HEX).map(([k, c]) => [k, hue(c)]));
 // Occupation categories a candidate can pick (all others need Canadian experience)
 export const OCC = [['', tk('None of these / not sure')], ['health', tk('Healthcare & social services')], ['trades', tk('Trades')], ['transport', tk('Transport')], ['stem', tk('STEM')], ['education', tk('Education')], ['agri', tk('Agriculture & agri-food')]];
 
@@ -145,7 +147,7 @@ export function resultHtml(p, draws) {
 }
 
 /* ---------- trend chart: lowest CRS per round for one category ---------- */
-export function trendChart(rounds, { color = '#1F4FA8', you = null, title = '', width = 640 } = {}) {
+export function trendChart(rounds, { color = 'var(--hue-blue)', you = null, title = '', width = 640 } = {}) {
   const rs = rounds.slice().reverse(); if (rs.length < 2) return '';
   const W = Math.max(300, Math.min(760, width)), H = W < 500 ? 200 : 230, pl = 44, pr = 16, pt = 18, pb = 30;
   const vals = rs.map((r) => r.crs).concat(you != null ? [you] : []);
@@ -184,7 +186,7 @@ export function drawsHtml(draws, { cat = 'french', group = 'ee', you = null, wid
     const rs = draws.ee.rounds.filter((r) => r.cat === c);
     const rec = recent(draws, c);
     const catName = (k) => (CAT_LABEL[k] ? t(CAT_LABEL[k]) : k);
-    body = '<div class="row chips" role="group" aria-label="' + t('Category') + '">' + order.map((k) => '<button type="button" class="fchip' + (k === c ? ' on' : '') + '" data-sa="draws-cat" data-c="' + k + '" aria-pressed="' + (k === c) + '"><i style="background:' + (CAT_COLOR[k] || '#475569') + '"></i>' + h(catName(k)) + '</button>').join('') + '</div>' +
+    body = '<div class="row chips" role="group" aria-label="' + t('Category') + '">' + order.map((k) => '<button type="button" class="fchip' + (k === c ? ' on' : '') + '" data-sa="draws-cat" data-c="' + k + '" aria-pressed="' + (k === c) + '"><i style="background:' + (CAT_COLOR[k] || 'var(--hue-slate)') + '"></i>' + h(catName(k)) + '</button>').join('') + '</div>' +
       '<div class="panel"><div class="row between"><div><h2>' + h(catName(c)) + '</h2><p class="small muted">' + t('Lowest CRS score invited, each round') + (rec ? ' · ' + t('last 6 months: {rounds} rounds, {n} invitations', { rounds: rec.count, n: fmtNum(rec.itas) }) : '') + '</p></div>' +
       (rec ? '<div class="kstat"><span class="eyebrow">' + t('Latest') + '</span><b class="mono">' + rec.last.crs + '</b><span class="small muted">' + fmtDay(rec.last.date) + '</span></div>' : '') + '</div>' +
       trendChart(rs.slice(0, W < 500 ? 14 : 24), { width: W, color: CAT_COLOR[c], you, title: t('Lowest score per {category} round', { category: catName(c) }) }) +
@@ -212,7 +214,7 @@ export function drawsHtml(draws, { cat = 'french', group = 'ee', you = null, wid
 function latestAll(draws) {
   const rs = draws.ee.rounds.slice(0, 10);
   return '<div class="panel"><h3>' + t('Last 10 Express Entry rounds, all categories') + '</h3><div class="tablewrap"><table class="dtable"><thead><tr><th>' + t('Date') + '</th><th>' + t('Category') + '</th><th class="num">' + t('Invitations') + '</th><th class="num">' + t('Lowest score') + '</th></tr></thead><tbody>' +
-    rs.map((r) => '<tr><td>' + fmtDay(r.date) + '</td><td><span class="cdot" style="background:' + (CAT_COLOR[r.cat] || '#475569') + '"></span>' + h(CAT_LABEL[r.cat] ? t(CAT_LABEL[r.cat]) : r.name) + '</td><td class="num mono">' + fmtNum(r.itas) + '</td><td class="num mono"><b>' + r.crs + '</b></td></tr>').join('') + '</tbody></table></div></div>';
+    rs.map((r) => '<tr><td>' + fmtDay(r.date) + '</td><td><span class="cdot" style="background:' + (CAT_COLOR[r.cat] || 'var(--hue-slate)') + '"></span>' + h(CAT_LABEL[r.cat] ? t(CAT_LABEL[r.cat]) : r.name) + '</td><td class="num mono">' + fmtNum(r.itas) + '</td><td class="num mono"><b>' + r.crs + '</b></td></tr>').join('') + '</tbody></table></div></div>';
 }
 
 /* ---------- per-path estimate ---------- */

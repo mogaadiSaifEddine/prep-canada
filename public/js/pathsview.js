@@ -1,5 +1,6 @@
 // Immigration path maps: list, finder and one map per path. Progress is saved to the account.
 import * as PEN from './paths.js';
+import { huePaths } from './palette.js';
 import { renderMap, miniTrail } from './pathmap.js';
 import { calculatorHtml, resultHtml, readForm, defaultProfile, fillFromTests, drawsHtml, estimateHtml, estimate, lastCutLine, recent } from './scoretools.js';
 import { crs } from './crs.js';
@@ -8,9 +9,10 @@ import { t, tk, lang, isRTL } from './i18n.js';
 // Path content per language: English is bundled, French / Arabic load on first use (same exports as
 // paths.js). Links are language-neutral, so they always come from the English module.
 const PDATA = { en: PEN };
+huePaths(PEN.PATHS);
 async function ensurePaths() {
   const l = lang();
-  if (l === 'fr' || l === 'ar') PDATA[l] = PDATA[l] || await import('./paths.' + l + '.js').catch(() => PEN);
+  if (l === 'fr' || l === 'ar') if (!PDATA[l]) { PDATA[l] = await import('./paths.' + l + '.js').catch(() => PEN); huePaths(PDATA[l].PATHS); }
 }
 const P = () => (PDATA[lang()] || PEN);
 const BACK = '<span class="arr-back" aria-hidden="true"></span>';
@@ -346,14 +348,14 @@ export function createPaths(ctx) {
       if (params.get('g')) st.drawsGroup = params.get('g');
       ctx.render('paths', '<div class="row"><span class="spinner"></span></div>');
       await Promise.all([load(), loadDraws(), ensurePaths()]);
-      if (tok !== st.tok) return;
+      if (tok !== st.tok || !location.hash.startsWith('#/paths')) return;
       ctx.render('paths', id === 'score' ? scorePage() : drawsPage());
       return;
     }
     st.pathId = id;
     ctx.render('paths', '<div class="row"><span class="spinner"></span></div>');
     await Promise.all([load(), loadDraws(), ensurePaths()]);
-    if (tok !== st.tok) return;
+    if (tok !== st.tok || !location.hash.startsWith('#/paths')) return;
     ctx.render('paths', id ? detail(id) : list());
     lastW = mapWidth();
     if (id && st.view === 'map') return;

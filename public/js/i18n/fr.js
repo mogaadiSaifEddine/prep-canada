@@ -679,5 +679,6 @@ export default {
   "…": "…",
   "You have started {n} tests in the last 24 hours. Fair-use limit reached; try again tomorrow.": "Vous avez commencé {n} tests au cours des dernières 24 heures. La limite d’usage raisonnable est atteinte ; réessayez demain.",
   "You have used all {max} test sections this month. It resets on the 1st.": "Vous avez utilisé les {max} sections de test de ce mois-ci. Le compteur repart à zéro le 1er du mois.",
-  "You have used {used} of your {max} test sections this month, not enough for this test. Try a single-skill test. It resets on the 1st.": "Vous avez utilisé {used} de vos {max} sections de test ce mois-ci : il n’en reste pas assez pour ce test. Essayez un test sur une seule compétence. Le compteur repart à zéro le 1er du mois."
+  "You have used {used} of your {max} test sections this month, not enough for this test. Try a single-skill test. It resets on the 1st.": "Vous avez utilisé {used} de vos {max} sections de test ce mois-ci : il n’en reste pas assez pour ce test. Essayez un test sur une seule compétence. Le compteur repart à zéro le 1er du mois.",
+  'Light or dark theme': 'Thème clair ou sombre'
 };
