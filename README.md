@@ -23,6 +23,28 @@ Plans are Free, Solo and Duo, paid in TND through Konnect, Flouci or manual D17/
 **Free plan:** one placement test per exam, one mock test a month, and device voices for Listening.
 **Solo (one exam) and Duo (both exams):** 60 test sections a month per exam (15 full tests; fair use 6 new tests a day), the course, and studio voices.
 
+## Immigration paths
+
+`public/js/paths.js` holds 11 routes to permanent residence as maps of stops:
+- Express Entry (French draws, FSW, CEC)
+- PNP
+- Québec (PSTQ / PEQ)
+- Francophone Mobility
+- FCIP / RCIP
+- AIP
+- the francophone student pilot
+- study → work → PR
+- spousal sponsorship
+
+It also lists the paused programs. Each stop has the steps, documents, time, cost, tips for applicants from Tunisia, and a link to the official page. The data was checked on 27 September 2026 (`CHECKED`). **Review it every few months:** draws, fees and pilots change often.
+
+`public/js/pathsview.js` renders:
+- the list
+- a "Find my path" helper that uses the learner's IELTS/TEF levels
+- one map per path
+
+Progress is saved per account (docs namespace `journey`).
+
 ## Caching and cost control
 
 - **Shared test pool:** each test part is written once, then reused by other learners at the same difficulty.

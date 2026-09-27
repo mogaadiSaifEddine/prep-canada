@@ -1,6 +1,7 @@
 // Prep Canada app shell: accounts, routing, plans and payments, admin, and the services the coaches use.
 import { createIELTS } from './ielts.js';
 import { createTEF } from './tef.js';
+import { createPaths } from './pathsview.js';
 
 const $ = (s) => document.querySelector(s);
 const h = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -149,8 +150,8 @@ function topRow(active) {
   return '<header class="top"><a class="brand" href="#/"><span class="mark">PC</span><div><b>Prep Canada</b><div class="sub">IELTS &amp; TEF Canada coach</div></div></a>' +
     (me ? '<div class="examswitch" role="navigation" aria-label="Exam"><a href="#/ielts"' + (active === 'ielts' ? ' aria-current="page"' : '') + '>IELTS</a><a href="#/tef"' + (active === 'tef' ? ' aria-current="page"' : '') + '>TEF</a></div>' : '') +
     '<nav class="acct" aria-label="Account">' + (me
-      ? '<a href="#/plans"' + (active === 'plans' ? ' aria-current="page"' : '') + '>Plans</a><a href="#/account"' + (active === 'account' ? ' aria-current="page"' : '') + '>Account</a>' + (me.isAdmin ? '<a href="#/admin"' + (active === 'admin' ? ' aria-current="page"' : '') + '>Admin</a>' : '')
-      : '<a href="#/plans">Plans</a><a href="#/login">Sign in</a><a class="btn sm primary" href="#/signup" style="color:var(--accent-ink)">Create account</a>') +
+      ? '<a href="#/paths"' + (active === 'paths' ? ' aria-current="page"' : '') + '>Paths</a><a href="#/plans"' + (active === 'plans' ? ' aria-current="page"' : '') + '>Plans</a><a href="#/account"' + (active === 'account' ? ' aria-current="page"' : '') + '>Account</a>' + (me.isAdmin ? '<a href="#/admin"' + (active === 'admin' ? ' aria-current="page"' : '') + '>Admin</a>' : '')
+      : '<a href="#/paths">Paths</a><a href="#/plans">Plans</a><a href="#/login">Sign in</a><a class="btn sm primary" href="#/signup" style="color:var(--accent-ink)">Create account</a>') +
     '</nav></header>' + (exam ? '' : renewBanner());
 }
 function coachHeader(exam, nav, current, subtitle) {
@@ -181,6 +182,14 @@ function getCoach(name) {
   return APP.coaches[name];
 }
 
+/* ---------------- immigration paths ---------------- */
+const PV = createPaths({
+  me: () => APP.me, toast,
+  getDoc: (ns, key) => api('GET', '/api/docs/' + ns + '/' + key).then((r) => r.data),
+  putDoc: (ns, key, val) => api('PUT', '/api/docs/' + ns + '/' + key, { data: val }),
+  render: (active, html) => page(active, html)
+});
+
 /* ---------------- pages ---------------- */
 function setupBanner() { const s = APP.setup; if (!s) return ''; return '<div class="banner bad"><b>Setup not finished.</b> The owner still needs to add: ' + h((s.missing || []).concat(s.db === false && !(s.missing || []).includes('DATABASE_URL') ? ['a working database connection'] : []).join(', ')) + '. Sign-up will work once this is done.</div>'; }
 function page(active, body) { $('#app').innerHTML = topRow(active) + setupBanner() + body + footer(); window.scrollTo(0, 0); }
@@ -193,6 +202,7 @@ function viewLanding() {
     '<div class="panel examcard" style="--c:#B4263A"><span class="tag">IELTS GENERAL TRAINING</span><h2>English</h2><p class="muted">Listening, Reading, Writing and Speaking, with band scores and your CLB level for each skill.</p></div>' +
     '<div class="panel examcard" style="--c:#1F4FA8"><span class="tag">TEF CANADA</span><h2>Français</h2><p class="muted">Compréhension et expression, orales et écrites, with scores out of 699 and your NCLC level.</p></div>' +
     '<div class="panel"><h3>How it works</h3><ol style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px"><li>Placement test in all four skills</li><li>Writing and speaking marked against the official criteria, with your errors quoted</li><li>A 12-unit course built on your results</li><li>Unlimited new mock tests that adapt to your level</li></ol></div></div>' +
+    '<a class="panel flat" href="#/paths" style="text-decoration:none;color:inherit"><div class="row between"><div><h3>Every immigration path, as a map</h3><p class="muted">Express Entry, the French draws, Québec, provinces, community pilots, study routes: each one step by step, with documents, time and cost.</p></div><span class="btn">Explore the paths</span></div></a>' +
     '<div class="panel flat"><div class="row between"><div><h3>Free to start</h3><p class="muted">The placement test and one mock a month are free. Unlimited tests, the course and studio voices start at ' + fmtTND(pr.solo.month) + ' a month.</p></div><a class="btn" href="#/plans">See plans</a></div></div>');
 }
 
@@ -217,8 +227,16 @@ async function viewHome() {
   const card = (ex, c, title, sub, lang) => '<a class="panel examcard" style="--c:' + c + '" href="#/' + ex + '"><span class="tag">' + title + '</span><h2>' + sub + '</h2><div class="stack" style="gap:6px" id="sum-' + ex + '"><p class="muted small">' + lang + '</p></div><div class="row">' + (APP.ent[ex].paid ? '<span class="pill good">Included in your plan</span>' : '<span class="pill">Free plan</span>') + '</div></a>';
   page('home', '<div class="row between"><div><p class="eyebrow">' + new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + '</p><h1>Welcome, ' + h(APP.me.name.split(' ')[0]) + '</h1></div><a class="pill ' + (p.plan === 'free' ? '' : 'good') + '" href="#/account">' + h(planLabel(p)) + (p.until ? ' · until ' + h(fmtDate(p.until)) : '') + '</a></div>' +
     '<div class="grid">' + card('ielts', '#B4263A', 'IELTS GENERAL TRAINING', 'English coach', 'Band scores and CLB levels.') + card('tef', '#1F4FA8', 'TEF CANADA', 'Coach de français', 'Scores sur 699 et niveaux NCLC.') + '</div>' +
+    '<div id="home-path"></div>' +
     installPanel() +
     (p.plan === 'free' ? '<div class="panel flat"><div class="row between"><div><h3>Unlock unlimited practice</h3><p class="muted small">Unlimited mock tests, your personal course and studio voices for Listening.</p></div><a class="btn primary" href="#/plans">See plans</a></div></div>' : ''));
+  PV.load().then(() => {
+    const el = $('#home-path'); if (!el) return;
+    const ps = PV.pinnedSummary();
+    el.innerHTML = ps
+      ? '<a class="panel pinned" href="#/paths/' + ps.p.id + '" style="--pc:' + ps.p.color + '"><p class="eyebrow">Your immigration path</p><h2>' + h(ps.p.name) + '</h2><div class="minimap" aria-hidden="true">' + ps.p.stops.map((s, i) => '<i class="' + (i < ps.done ? 'on' : '') + '"></i>').join('') + '</div><p>' + ps.done + ' of ' + ps.p.stops.length + ' stops done' + (ps.next ? ' · next: <b>' + h(ps.next.title) + '</b>' : '') + '</p></a>'
+      : '<a class="panel flat" href="#/paths" style="text-decoration:none;color:inherit"><div class="row between"><div><h3>Which immigration path fits you?</h3><p class="muted small">11 routes to permanent residence as step-by-step maps, with tips for applicants from Tunisia.</p></div><span class="btn">Find my path</span></div></a>';
+  }).catch(() => {});
   for (const ex of ['ielts', 'tef']) {
     api('GET', '/api/docs/' + ex + '/profile').then((r) => {
       const d = r.data; const el = $('#sum-' + ex); if (!el || !d) return;
@@ -434,7 +452,8 @@ async function route() {
   document.documentElement.dataset.exam = coachName === 'tef' ? 'tef' : 'ielts';
   document.documentElement.lang = coachName === 'tef' ? 'fr' : 'en';
   const up = $('#upsell'); if (up) up.innerHTML = '';
-  const publicPaths = ['/', '/login', '/signup', '/forgot', '/reset', '/legal/terms', '/legal/privacy', '/plans'];
+  const publicPaths = ['/', '/login', '/signup', '/forgot', '/reset', '/legal/terms', '/legal/privacy', '/plans', '/paths'];
+  if (path.startsWith('/paths')) { PV.show(path.split('/')[2] || null); return; }
   if (!APP.me && !publicPaths.includes(path)) { go('/login?next=' + encodeURIComponent(path)); return; }
   if (APP.me && (path === '/login' || path === '/signup')) { go('/'); return; }
   if (coachName) {
@@ -462,6 +481,7 @@ function showErr(id, e) { const el = $(id); if (el) { el.textContent = errCopy(e
 document.addEventListener('submit', async (e) => {
   const f = e.target; if (!f.id || !f.id.startsWith('f-')) return;
   e.preventDefault();
+  if (PV.onSubmit(f)) return;
   const btn = f.querySelector('button[type=submit]'); if (btn) btn.disabled = true;
   try {
     if (f.id === 'f-login') {
@@ -492,6 +512,7 @@ document.addEventListener('submit', async (e) => {
 });
 document.addEventListener('click', async (e) => {
   const t = e.target.closest('[data-sa]'); if (!t) return;
+  if (PV.onClick(t)) return;
   const a = t.dataset.sa; const b = APP.billing;
   if (a === 'close-upsell') { const m = $('#upsell'); if (m) m.innerHTML = ''; return; }
   if (a === 'install' && APP.installEvt) { APP.installEvt.prompt(); APP.installEvt = null; return; }
@@ -526,6 +547,7 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); APP.
 
 /* ---------------- boot ---------------- */
 async function loadMe() {
+  PV.reset();
   try { const r = await api('GET', '/api/me'); APP.me = r.user; APP.ent = r.entitlements || {}; }
   catch { APP.me = null; APP.ent = {}; }
 }

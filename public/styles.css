@@ -209,3 +209,49 @@ details summary{cursor:pointer;font-weight:600}
 .foot a{color:var(--muted)}
 .kpis{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
 .kpi b{font:700 1.8rem/1 var(--display);font-variant-numeric:tabular-nums}
+
+/* immigration paths */
+.pathgrid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.pathcard{gap:10px;text-decoration:none;color:inherit;border-top:4px solid var(--pc)}
+.pathcard:hover{border-color:var(--muted);border-top-color:var(--pc)}
+.pathcard .tag,.pathhead .eyebrow{color:var(--pc);font:700 .75rem var(--mono);letter-spacing:.04em;text-transform:uppercase}
+.pinned{border-left:6px solid var(--pc);text-decoration:none;color:inherit;gap:8px}
+.pathhead{border-top:6px solid var(--pc)}
+.minimap{display:flex;align-items:center;gap:0;margin:2px 0}
+.minimap i{flex:1;height:4px;background:var(--line);position:relative}
+.minimap i::after{content:"";position:absolute;right:-4px;top:-3px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--line)}
+.minimap i.on{background:var(--pc,var(--accent))}
+.minimap i.on::after{background:var(--pc,var(--accent));border-color:var(--pc,var(--accent))}
+.pinned .minimap i.on,.pathcard .minimap i.on{background:var(--pc)}
+.hmap{display:flex;overflow-x:auto;gap:0;padding:6px 2px 10px;scrollbar-width:thin}
+.hmap button{flex:0 0 112px;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:0;cursor:pointer;color:var(--muted);font:600 .74rem/1.25 var(--body);text-align:center;position:relative;padding:0 4px}
+.hmap button::before{content:"";position:absolute;top:15px;left:0;right:0;height:3px;background:var(--line);z-index:0}
+.hmap button:first-child::before{left:50%}.hmap button:last-child::before{right:50%}
+.hmap button.on::before{background:var(--pc)}
+.hmap i{position:relative;z-index:1;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font:700 .8rem var(--mono);font-style:normal;background:var(--surface);border:3px solid var(--line);color:var(--ink)}
+.hmap button.on i{background:var(--pc);border-color:var(--pc);color:#fff}
+.hmap button.cur i{border-color:var(--pc);box-shadow:0 0 0 4px color-mix(in srgb,var(--pc) 25%,transparent)}
+.hmap span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.route{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.stop{display:grid;grid-template-columns:44px minmax(0,1fr);gap:14px;position:relative;padding-bottom:14px}
+.stop::before{content:"";position:absolute;left:21px;top:36px;bottom:-2px;width:4px;background:var(--line);border-radius:2px}
+.stop.done::before{background:var(--pc)}
+.stop.finish::before{display:none}
+.stop .dot{width:44px;height:44px;border-radius:50%;border:4px solid var(--pc);background:var(--surface);color:var(--ink);font:700 .95rem var(--mono);display:grid;place-items:center;cursor:pointer;position:relative;z-index:1;padding:0}
+.stop.done .dot{background:var(--pc);color:#fff}
+.stop.current .dot{box-shadow:0 0 0 6px color-mix(in srgb,var(--pc) 22%,transparent)}
+.stop.optional .dot{border-style:dashed}
+.stop.finish .dot{border-color:var(--pc);background:var(--surface);cursor:default;font-size:1.2rem}
+.stopbody{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 16px;min-width:0}
+.stop.current .stopbody{border-color:var(--pc)}
+.stop.done .stopbody{background:var(--surface2)}
+.stopbody summary{cursor:pointer;display:flex;flex-direction:column;gap:4px;list-style:none}
+.stopbody summary::-webkit-details-marker{display:none}
+.stoptitle{font:700 1.05rem/1.3 var(--display)}
+.stop.finish .stopbody{border-style:dashed;padding:12px 16px;align-self:center}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+.steps li{max-width:72ch}
+.tn{background:var(--surface2);border-left:3px solid var(--pc);padding:8px 12px;border-radius:0 6px 6px 0}
+.pill.accentp{background:var(--pc);color:#fff;border-color:transparent}
+.pathhead .meter{flex:none;height:8px}
+.stopbody .pill,.pathhead .pill,.pathcard .pill{white-space:normal;line-height:1.3}
