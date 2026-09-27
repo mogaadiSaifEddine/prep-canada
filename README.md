@@ -95,7 +95,7 @@ For real AI locally, put `DATABASE_URL=pglite:./.data`, `GEMINI_API_KEY` and `AD
 
 1. Create a Postgres database, for example Neon through Vercel's Storage tab or Supabase, and copy the connection string.
 2. Get a Gemini API key at https://aistudio.google.com/apikey. Enable billing for production use, because the free tier's rate limits are low.
-3. Import the repo in Vercel (it detects Next.js; no `vercel.json` needed), then add the variables from `.env.example`. At minimum you need `DATABASE_URL`, `GEMINI_API_KEY` and `ADMIN_EMAILS`.
+3. Import the repo in Vercel, then add the variables from `.env.example`. `vercel.json` sets the framework to Next.js, so it builds correctly even if the project was first created with the Node preset. At minimum you need `DATABASE_URL`, `GEMINI_API_KEY` and `ADMIN_EMAILS`.
 4. Deploy, then open `/api/health`. It should return `{"ok":true}`.
 5. Sign up with an email listed in `ADMIN_EMAILS` to get the Admin page.
 
