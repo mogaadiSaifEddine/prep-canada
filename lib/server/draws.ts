@@ -117,7 +117,7 @@ export const BUNDLED: Omit<Draws, 'live' | 'updated'> = {
 /* ---------- storage ---------- */
 async function getSetting(key: string) { const r = await one('select data, updated_at from settings where key=$1', [key]); return r ? { data: r.data, at: new Date(r.updated_at).getTime() } : null; }
 async function putSetting(key: string, data: unknown) {
-  await q(`insert into settings(key, data, updated_at) values($1,$2,now()) on conflict(key) do update set data=excluded.data, updated_at=now()`, [key, JSON.stringify(data)]);
+  await q(`insert into settings(key, data, updated_at) values($1,$2::text::jsonb,now()) on conflict(key) do update set data=excluded.data, updated_at=now()`, [key, JSON.stringify(data)]);
 }
 
 type Live = { rounds: EERound[]; dist: PoolDist | null; fetchedAt?: string };

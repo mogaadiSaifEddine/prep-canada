@@ -165,11 +165,18 @@ async function connect(): Promise<Impl> {
   return { q: async (text, args = []) => (await sql.unsafe(text, args as never[])) as unknown as Row[], exec: (t) => sql.unsafe(t) };
 }
 
+// JSON used to be written as a JSON *string* (postgres.js encodes a string bound to ::jsonb).
+// Turn those rows back into objects; rows that are already objects are left alone.
+const REPAIR = [['docs', 'data'], ['pool_items', 'content'], ['lesson_pool', 'content'], ['settings', 'data']]
+  .map(([t, c]) => `update ${t} set ${c} = (${c} #>> '{}')::jsonb where jsonb_typeof(${c}) = 'string' and left(${c} #>> '{}', 1) in ('{', '[');`)
+  .join('\n');
+
 export async function db(): Promise<Impl> {
   if (!ready) {
     ready = (async () => {
       impl = await connect();
       await impl.exec(SCHEMA);
+      await impl.exec(REPAIR);
       return impl;
     })().catch((e) => { ready = null; throw e; });
   }

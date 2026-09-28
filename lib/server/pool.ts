@@ -7,8 +7,8 @@
 //   • same exam, section, part and difficulty
 //   • preferred: covers the question types they miss most, on a topic they haven't had, used less often
 //   • items reported by several learners are retired automatically
-// The pool keeps growing: while a bucket is small, a share of requests still generates fresh
-// content (POOL_FRESH_* settings), and anyone who has seen everything gets a new item.
+// By default a learner gets a new AI-written item only once they have seen every item in the bucket;
+// the POOL_FRESH_* settings can make a share of requests generate fresh content anyway.
 import { q, one, type Row } from './db';
 import type { ExamPrompts, Json } from './prompts/types';
 import { uid, toArr, clampStr } from './util';
@@ -17,9 +17,9 @@ import { logUsage } from './cost';
 import { textModel } from './gemini';
 
 const num = (k: string, d: number) => (process.env[k] !== undefined && process.env[k] !== '' ? Number(process.env[k]) : d);
-const FRESH_SMALL = () => num('POOL_FRESH_SMALL', 0.35); // bucket < POOL_SMALL items
-const FRESH_MID = () => num('POOL_FRESH_MID', 0.12);     // bucket < POOL_MID items
-const FRESH_BIG = () => num('POOL_FRESH_BIG', 0.03);
+const FRESH_SMALL = () => num('POOL_FRESH_SMALL', 0); // bucket < POOL_SMALL items
+const FRESH_MID = () => num('POOL_FRESH_MID', 0);     // bucket < POOL_MID items
+const FRESH_BIG = () => num('POOL_FRESH_BIG', 0);
 const SMALL = () => num('POOL_SMALL', 15);
 const MID = () => num('POOL_MID', 60);
 export const RETIRE_REPORTS = () => num('POOL_RETIRE_REPORTS', 3);
@@ -55,7 +55,7 @@ async function bucketTopics(exam: string, k: string, i: number, diff: string): P
 
 async function store(exam: string, k: string, i: number, diff: string, data: Json, source?: string) {
   const id = 'pi_' + uid(9);
-  await q(`insert into pool_items(id, exam, k, i, diff, topic, types, content, source) values($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9)`,
+  await q(`insert into pool_items(id, exam, k, i, diff, topic, types, content, source) values($1,$2,$3,$4,$5,$6,$7,$8::text::jsonb,$9)`,
     [id, exam, k, i, diff, topicOf(data), typesOf(data), JSON.stringify(data), source || 'user']);
   return id;
 }
@@ -114,7 +114,7 @@ export async function lessonFor(P: ExamPrompts, { exam, unit, profile, user }: {
   if (hit) { logUsage({ userId: user.id, exam, task: exam + ':lesson', model: textModel(false), cached: true }); return hit.content; }
   const data = await aiJSON(P.lessonPrompt(profile, user, unit, level), { task: exam + ':lesson', meta: { userId: user.id, exam } });
   if (data && Array.isArray(data.quiz) && data.quiz.length >= 5) {
-    await q(`insert into lesson_pool(key, exam, skill, title, level, content, uses) values($1,$2,$3,$4,$5,$6::jsonb,1) on conflict(key) do nothing`,
+    await q(`insert into lesson_pool(key, exam, skill, title, level, content, uses) values($1,$2,$3,$4,$5,$6::text::jsonb,1) on conflict(key) do nothing`,
       [key, exam, unit.skill, clampStr(unit.title, 160), level, JSON.stringify(data)]);
   }
   return data;

@@ -127,7 +127,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (user && user.lang && !savedLang()) setLangState(await setLang(user.lang, { remember: false }));
       try { const hl = await api<Health>('GET', '/api/health'); if (!hl.ok) setSetup(hl); } catch { setSetup({ ok: false, missing: ['server'] }); }
       if (alive) setReady(true);
-      if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') navigator.serviceWorker.register('/sw.js').catch(() => {});
+      if ('serviceWorker' in navigator) {
+        if (process.env.NODE_ENV === 'production') navigator.serviceWorker.register('/sw.js').catch(() => {});
+        // In dev, chunk URLs aren't content-hashed: a worker left by a production run would keep serving stale code.
+        else navigator.serviceWorker.getRegistrations().then((rs) => rs.forEach((r) => r.unregister())).then(() => caches.keys()).then((ks) => ks.forEach((k) => caches.delete(k))).catch(() => {});
+      }
     })();
     const unfollow = Theme.followSystem();
     const onInstall = (e: Event) => { e.preventDefault(); setInstallEvt(e); };

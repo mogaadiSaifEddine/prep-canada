@@ -62,9 +62,9 @@ Progress is saved per account (docs namespace `journey`).
 - **Shared test pool:** each test part is written once, then reused by other learners at the same difficulty.
   - Nobody gets a part they have already seen.
   - The pool prefers parts that cover a learner's weakest question types and topics they haven't had.
-  - While a bucket is small, some requests still write new content so the pool keeps growing. The rates are set by `POOL_FRESH_SMALL`, `POOL_FRESH_MID`, `POOL_FRESH_BIG`, `POOL_SMALL` and `POOL_MID`.
+  - A new part is written by the AI only when the learner has seen every part in the bucket; it then joins the pool. To keep writing a share of fresh parts anyway, set `POOL_FRESH_SMALL`, `POOL_FRESH_MID`, `POOL_FRESH_BIG` (rates, default 0) with `POOL_SMALL` and `POOL_MID` (bucket sizes).
   - Parts reported by 3 learners are retired automatically (`POOL_RETIRE_REPORTS`).
-  - Admin › Test pool can fill and voice the pool before launch.
+  - Admin › Test pool can fill and voice the pool before launch (up to 100 sets per run, one level or all three).
 - **Lesson pool:** lessons are shared by unit title and level. The course generator is steered towards unit titles that already exist.
 - **Audio cache:** every spoken clip is stored once as MP3, keyed by a hash of exactly what is said, and shared across learners. The cache size is capped by `AUDIO_CACHE_MAX_MB` (default 400); the least-played clips are pruned first.
 - **Limits:** paid plans get `PAID_SECTIONS_PER_MONTH` test sections per exam (default 60; a full test uses 4) and at most 6 new tests a day.

@@ -33,11 +33,18 @@ export const LINKS = PEN.LINKS;
 /* ---------- visitor storage ---------- */
 const LS = 'pc_journey';
 const emptyJourney = (): Journey => ({ progress: {}, pinned: null, finder: null, profile: null });
+// Saved docs can be partial (older app, hand edits): always hand back the full shape.
+function normalizeJourney(raw: unknown): Journey {
+  if (typeof raw === 'string') { try { raw = JSON.parse(raw); } catch { /* keep as is */ } }
+  const j: any = raw && typeof raw === 'object' ? raw : emptyJourney();
+  j.progress = j.progress && typeof j.progress === 'object' ? j.progress : {};
+  j.pinned = j.pinned ?? null; j.finder = j.finder ?? null; j.profile = j.profile ?? null;
+  return j as Journey;
+}
 function readLocal(): Journey {
   let j: any = null;
   try { j = JSON.parse(localStorage.getItem(LS) || 'null'); } catch { j = null; }
-  if (!j || typeof j !== 'object') j = emptyJourney();
-  j.progress = j.progress && typeof j.progress === 'object' ? j.progress : {};
+  j = normalizeJourney(j);
   try { const old = JSON.parse(localStorage.getItem('pc_profile') || 'null'); if (old && !j.profile) j.profile = old; localStorage.removeItem('pc_profile'); } catch { /* ignore */ }
   return j as Journey;
 }
@@ -97,7 +104,7 @@ async function doLoad() {
     getDoc('ielts', 'profile').catch(() => null),
     getDoc('tef', 'profile').catch(() => null)
   ]);
-  st.journey = j || { progress: {}, pinned: null, finder: null, profile: null };
+  st.journey = normalizeJourney(j);
   st.finder = st.journey.finder || null;
   const lv: AppLevels = { en: null, fr: null, enDetail: null, frDetail: null };
   const K = ['L', 'R', 'W', 'S'] as const;

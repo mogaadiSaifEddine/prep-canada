@@ -209,7 +209,7 @@ route('PUT', '/api/docs/:exam/:key', async ({ user: u, params, body }) => {
   if (!KEY_RE.test(params.key)) throw err(400, 'bad_request', 'Bad key.');
   const data = JSON.stringify(body.data ?? null);
   if (data.length > 900_000) throw err(413, 'too_large', 'This item is too large to save.');
-  await q(`insert into docs(user_id, exam, key, data, updated_at) values($1,$2,$3,$4::jsonb, now())
+  await q(`insert into docs(user_id, exam, key, data, updated_at) values($1,$2,$3,$4::text::jsonb, now())
            on conflict(user_id, exam, key) do update set data=excluded.data, updated_at=now()`, [user.id, params.exam, params.key, data]);
   return { ok: true };
 });

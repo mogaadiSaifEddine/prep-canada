@@ -81,27 +81,32 @@ function Costs({ tick, onChange }: { tick: number; onChange: () => void }) {
 
   async function fillPool() {
     if (filling.current) return;
-    const exam = fill.exam; const diff = fill.diff; const sets = Math.max(1, Math.min(20, Number(fill.n) || 1));
+    const exam = fill.exam; const sets = Math.max(1, Math.min(100, Number(fill.n) || 1));
+    const diffs = fill.diff === 'all' ? ['foundation', 'exam', 'advanced'] : [fill.diff];
     const parts: Record<string, Record<string, number>> = { ielts: { L: 4, R: 3, W: 1, S: 1 }, tef: { L: 4, R: 4, W: 1, S: 1 } };
-    const jobs: { k: string; i: number }[] = [];
-    for (let n = 0; n < sets; n++) for (const k of (fill.k === 'all' ? ['L', 'R', 'W', 'S'] : [fill.k])) for (let i = 0; i < parts[exam][k]; i++) jobs.push({ k, i });
-    let done = 0, failed = 0; filling.current = true;
-    for (const j of jobs) {
-      if (!filling.current) break;
-      setStatus('Writing ' + (done + 1) + ' of ' + jobs.length + ' (' + j.k + ' part ' + (j.i + 1) + ')… keep this page open.');
-      try {
-        const x = await api<any>('POST', '/api/admin/pool/fill', { exam, k: j.k, i: j.i, diff });
-        if (!x.valid) failed++;
-        if (fill.audio && x.valid && j.k === 'L') {
-          for (let c = 0; c < 80; c++) {
-            setStatus('Voicing Listening part ' + (j.i + 1) + ', clip ' + (c + 1) + '…');
-            const a = await api<any>('POST', '/api/admin/pool/' + x.id + '/audio', { c });
-            if (a.done) break;
+    const jobs: { k: string; i: number; diff: string }[] = [];
+    for (const diff of diffs) for (let n = 0; n < sets; n++) for (const k of (fill.k === 'all' ? ['L', 'R', 'W', 'S'] : [fill.k])) for (let i = 0; i < parts[exam][k]; i++) jobs.push({ k, i, diff });
+    let next = 0, done = 0, failed = 0; filling.current = true;
+    const show = () => setStatus('Written ' + done + ' of ' + jobs.length + (failed ? ' (' + failed + ' failed)' : '') + '… keep this page open.');
+    show();
+    // A few parts at a time: a full 40-set fill is hundreds of AI calls.
+    const worker = async () => {
+      while (filling.current && next < jobs.length) {
+        const j = jobs[next++];
+        try {
+          const x = await api<any>('POST', '/api/admin/pool/fill', { exam, k: j.k, i: j.i, diff: j.diff });
+          if (!x.valid) failed++;
+          if (fill.audio && x.valid && j.k === 'L') {
+            for (let c = 0; c < 80; c++) {
+              const a = await api<any>('POST', '/api/admin/pool/' + x.id + '/audio', { c });
+              if (a.done) break;
+            }
           }
-        }
-      } catch (e: any) { failed++; if (e.code === 'rate_limited') await new Promise((res) => setTimeout(res, 20000)); }
-      done++;
-    }
+        } catch (e: any) { failed++; if (e.code === 'rate_limited') await new Promise((res) => setTimeout(res, 20000)); }
+        done++; show();
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
     filling.current = false;
     setStatus('Done: ' + (done - failed) + ' added' + (failed ? ', ' + failed + ' failed quality checks or errors' : '') + '.');
     reload();
@@ -143,7 +148,7 @@ function Costs({ tick, onChange }: { tick: number; onChange: () => void }) {
       <form id="f-fill" className="row" onSubmit={(e) => { e.preventDefault(); fillPool(); }}>
         <select id="fl-exam" value={fill.exam} onChange={(e) => setFill({ ...fill, exam: e.target.value })}><option value="ielts">IELTS</option><option value="tef">TEF</option></select>
         <select id="fl-k" value={fill.k} onChange={(e) => setFill({ ...fill, k: e.target.value })}><option value="all">All sections</option><option value="L">Listening</option><option value="R">Reading</option><option value="W">Writing</option><option value="S">Speaking</option></select>
-        <select id="fl-diff" value={fill.diff} onChange={(e) => setFill({ ...fill, diff: e.target.value })}><option value="exam">Exam standard</option><option value="foundation">Foundation</option><option value="advanced">Advanced</option></select>
+        <select id="fl-diff" value={fill.diff} onChange={(e) => setFill({ ...fill, diff: e.target.value })}><option value="exam">Exam standard</option><option value="foundation">Foundation</option><option value="advanced">Advanced</option><option value="all">All levels</option></select>
         <label className="small">Sets <input type="text" id="fl-n" value={fill.n} onChange={(e) => setFill({ ...fill, n: e.target.value })} inputMode="numeric" style={{ width: 56 }} /></label>
         <label className="check small" style={{ gridTemplateColumns: '22px auto' }}><input type="checkbox" id="fl-audio" checked={fill.audio} onChange={(e) => setFill({ ...fill, audio: e.target.checked })} /><span>Voice Listening now</span></label>
         <button className="btn sm primary" type="submit">Generate</button>
