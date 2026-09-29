@@ -120,7 +120,11 @@ export async function lessonFor(P: ExamPrompts, { exam, unit, profile, user }: {
   return data;
 }
 export async function lessonCatalog(exam: string) {
-  return q(`select skill, title from lesson_pool where exam=$1 and not retired order by uses desc limit 40`, [exam]);
+  // The most-used titles of each skill (all levels together), so no skill crowds out the others.
+  return q(`select skill, title from (
+      select skill, title, sum(uses) as uses, row_number() over (partition by skill order by sum(uses) desc) as rn
+      from lesson_pool where exam=$1 and not retired group by skill, title
+    ) t where rn <= 12 order by skill, uses desc`, [exam]);
 }
 
 /* ---------- quality: reports from learners ---------- */

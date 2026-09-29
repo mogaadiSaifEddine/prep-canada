@@ -4,7 +4,7 @@ import { api } from '../client/api';
 import { audioSeries, say as sayStudio, speakLines, warmVoices, type SpeakLine, type VoiceMap } from '../client/audio';
 import { stopDictation, toggleDictation } from '../client/dictation';
 import { bridge } from '../client/bridge';
-import { CoachBase, pickVoices, toArr, today, uid, words, type GenState, type Run } from './common';
+import { CoachBase, carryProgress, lessonKeyOf, pickVoices, toArr, today, uid, words, type GenState, type Run } from './common';
 
 /* ---------- constants ---------- */
 export const SK: Record<string, string> = { L: 'Compréhension orale', R: 'Compréhension écrite', W: 'Expression écrite', S: 'Expression orale' };
@@ -307,7 +307,7 @@ export class TefCoach extends CoachBase {
     try {
       const r = await this.ai('course', {}); if (!r || !Array.isArray(r.phases)) throw { code: 'invalid_json' };
       r.phases.forEach((ph: any) => { ph.units = toArr<any>(ph.units).map((u, i) => ({ id: String(u.id || ('u' + i)), skill: ORDER.includes(u.skill) ? u.skill : 'W', title: String(u.title || ''), goal: String(u.goal || ''), checkpoint: !!u.checkpoint })); });
-      S.course = { title: String(r.title || 'Votre parcours'), summary: String(r.summary || ''), phases: r.phases, createdAt: Date.now(), progress: {}, version: uid() }; this.saveCourse();
+      S.course = { title: String(r.title || 'Votre parcours'), summary: String(r.summary || ''), phases: r.phases, createdAt: Date.now(), progress: carryProgress(S.course, r.phases), version: uid() }; this.saveCourse();
     } catch (e) { S.courseErr = this.errCopy(e); }
     S.courseBusy = false; this.emit();
   }
@@ -316,7 +316,7 @@ export class TefCoach extends CoachBase {
     const S = this.S; const u = this.allUnits().find((x) => x.id === id); if (!u) return;
     S.view = 'lesson'; S.lessonUnit = u; S.lesson = null; S.lessonErr = null; S.quizChecked = false; S.taskFb = null; S.taskAns = ''; this.emit(); window.scrollTo(0, 0);
     if (u.checkpoint) return;
-    const key = S.course.version + '_' + u.id; let l = null; try { l = await this.getLesson(key); } catch { /* ignore */ }
+    const key = lessonKeyOf(S.course, u); let l = null; try { l = await this.getLesson(key); } catch { /* ignore */ }
     if (l) { S.lesson = l; this.emit(); return; }
     await this.genLesson(u, key);
   }
@@ -326,7 +326,7 @@ export class TefCoach extends CoachBase {
     catch (e) { S.lessonErr = this.errCopy(e); }
     S.lessonBusy = false; this.emit();
   }
-  relesson() { const u = this.S.lessonUnit; this.genLesson(u, this.S.course.version + '_' + u.id); }
+  relesson() { const u = this.S.lessonUnit; this.genLesson(u, lessonKeyOf(this.S.course, u)); }
   setQuizAnswer(i: number, v: string) { this.S.lesson.quiz[i]._given = v; this.emit(); }
   checkQuiz() {
     const S = this.S; const l = S.lesson; let c = 0;

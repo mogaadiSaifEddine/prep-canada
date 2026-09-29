@@ -82,6 +82,30 @@ export abstract class CoachBase {
   }
 }
 
+/* ---------- course rebuilds ---------- */
+const unitKey = (u: any) => u.skill + '|' + String(u.title || '').toLowerCase().replace(/\s+/g, ' ').trim();
+/** Saved-lesson id of a unit: kept from an earlier course, or this course's own. */
+export const lessonKeyOf = (course: any, u: any): string => u.lessonKey || course.version + '_' + u.id;
+/**
+ * When a course is rebuilt, units with the same skill and title keep their progress and saved
+ * lesson (sets lessonKey on them). Checkpoints always start fresh. Returns the new progress.
+ */
+export function carryProgress(old: any, phases: any[]): Record<string, any> {
+  const progress: Record<string, any> = {};
+  if (!old || !Array.isArray(old.phases)) return progress;
+  const prev = new Map<string, { p: any; lessonKey: string }>();
+  for (const u of old.phases.flatMap((ph: any) => toArr<any>(ph.units))) {
+    if (!u.checkpoint) prev.set(unitKey(u), { p: old.progress && old.progress[u.id], lessonKey: lessonKeyOf(old, u) });
+  }
+  for (const u of phases.flatMap((ph: any) => ph.units)) {
+    const hit = !u.checkpoint && prev.get(unitKey(u));
+    if (!hit) continue;
+    u.lessonKey = hit.lessonKey;
+    if (hit.p) progress[u.id] = hit.p;
+  }
+  return progress;
+}
+
 /* ---------- device voices ---------- */
 type SpeakerSpec = { name: string; gender?: string; accent?: string };
 export function pickVoices(voices: SpeechSynthesisVoice[], speakers: SpeakerSpec[], FEM: RegExp, MAL: RegExp, o: { maleGuard?: boolean; accents?: boolean } = {}) {

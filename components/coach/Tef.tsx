@@ -334,7 +334,7 @@ function Report({ c }: P) {
       <p>{below.length ? 'Verdict honnête : pas encore NCLC ' + tgt + ' en ' + below.map((k) => SK[k].toLowerCase() + ' (il faut ' + minFor(k, tgt) + ')').join(', ') + '.' : 'Ces résultats atteignent votre objectif NCLC ' + tgt + '. Stabilisez ce niveau.'}</p>
       {weak.length ? <p><b>Documents à travailler :</b> {weak.join(', ')}</p> : null}
       {pats.length ? <p><b>Erreurs à surveiller :</b> {pats.slice(0, 4).join(' ; ')}</p> : null}
-      <div className="row">{run.kind === 'placement' ? <button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>{S.course ? 'Recréer mon parcours avec ces résultats' : 'Créer mon parcours avec ces résultats'}</button> : null}<button className="btn" data-nav="tests" onClick={() => c.nav('tests')}>Nouveau test blanc</button></div>
+      <div className="row">{run.kind === 'placement' || (S.course && !run.unitId) ? <button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>{S.course ? 'Recréer mon parcours avec ces résultats' : 'Créer mon parcours avec ces résultats'}</button> : null}<button className="btn" data-nav="tests" onClick={() => c.nav('tests')}>Nouveau test blanc</button></div>
     </div>
     {ks.map((k) => <SectionReport key={k} c={c} k={k} r={run.results[k]} />)}
   </>;
@@ -353,11 +353,11 @@ function History({ c }: P) {
 /* ---------- parcours ---------- */
 function Course({ c }: P) {
   const app = useApp(); const S = c.S;
-  if (!app.ent.tef?.course) return <Upsell exam="tef" title="Votre parcours personnalisé" text="Un parcours de 12 unités construit sur vos résultats, avec leçons, quiz, tâches corrigées et tests d’étape chronométrés." />;
-  if (S.courseBusy) return <div className="panel"><div className="row"><Spinner /><h2>Création de votre parcours</h2></div><p className="muted">12 unités construites à partir de vos scores et de vos erreurs. Cela prend jusqu’à une minute.</p></div>;
+  if (!app.ent.tef?.course) return <Upsell exam="tef" title="Votre parcours personnalisé" text="Un parcours de 12 unités maximum construit sur vos résultats, avec leçons, quiz, tâches corrigées et tests d’étape chronométrés." />;
+  if (S.courseBusy) return <div className="panel"><div className="row"><Spinner /><h2>Création de votre parcours</h2></div><p className="muted">Des unités construites à partir de vos scores, de vos erreurs, des leçons déjà faites et de la date de l’examen. Cela prend jusqu’à une minute.</p></div>;
   if (!S.course) return (
     <div className="panel"><p className="eyebrow">Parcours personnalisé</p><h2>Un parcours construit sur vos résultats</h2>
-      <p style={{ maxWidth: '64ch' }}>Douze unités : chacune travaille un point précis, avec une leçon courte, un quiz de 10 questions et une tâche corrigée par votre coach IA. Les unités 4, 8 et 12 sont des tests chronométrés. {S.profile.placementDone ? 'Le parcours utilise vos résultats au test de positionnement.' : 'Pour un meilleur parcours, faites d’abord le test de positionnement.'}</p>
+      <p style={{ maxWidth: '64ch' }}>Jusqu’à douze unités, selon le temps qui reste avant l’examen : chacune travaille un point précis, avec une leçon courte, un quiz de 10 questions et une tâche corrigée par votre coach IA. Chaque phase se termine par un test chronométré. {S.profile.placementDone ? 'Le parcours utilise vos résultats au test de positionnement.' : 'Pour un meilleur parcours, faites d’abord le test de positionnement.'}</p>
       {S.courseErr ? <p className="banner bad">{S.courseErr}</p> : null}
       <div className="row"><button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>Créer mon parcours</button>{!S.profile.placementDone ? <button className="btn" data-act="placement" onClick={() => c.placement()}>D’abord le test de positionnement</button> : null}</div>
     </div>

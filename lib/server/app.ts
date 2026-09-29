@@ -285,7 +285,8 @@ route('POST', '/api/ai', async ({ user: u, body }) => {
   if (task === 'course') {
     requirePaid(user, exam, 'The personal course');
     const catalog = await lessonCatalog(exam);
-    return aiJSON(pr.coursePrompt(profile, user, catalog), { task: exam + ':course', meta: { userId: user.id, exam } });
+    const prev = await getDoc(user.id, exam, 'course');
+    return aiJSON(pr.coursePrompt(profile, user, catalog, prev),{ task: exam + ':course', meta: { userId: user.id, exam } });
   }
   if (task === 'lesson' || task === 'taskfb') {
     requirePaid(user, exam, 'Lessons');
@@ -293,7 +294,9 @@ route('POST', '/api/ai', async ({ user: u, body }) => {
     const unit = course && toArr<any>(course.phases).flatMap((ph) => toArr<any>(ph.units)).find((x) => x.id === body.unitId);
     if (!unit) throw err(404, 'not_found', 'Unit not found. Rebuild your course.');
     if (task === 'lesson') return lessonFor(pr, { exam, unit, profile, user });
-    const lesson = await getDoc(user.id, exam, 'lesson_' + clampStr(course.version, 40) + '_' + unit.id);
+    // A unit kept from an earlier course keeps its saved lesson (lessonKey).
+    const lk = typeof unit.lessonKey === 'string' && KEY_RE.test('lesson_' + unit.lessonKey) ? unit.lessonKey : clampStr(course.version, 40) + '_' + unit.id;
+    const lesson = await getDoc(user.id, exam, 'lesson_' + lk);
     const taskPrompt = lesson && lesson.task ? lesson.task.prompt : unit.title;
     const answer = clampStr(body.answer, 6000);
     if (words(answer) < 10) throw err(400, 'bad_request', 'Write a little more first.');

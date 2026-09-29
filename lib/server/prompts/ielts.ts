@@ -123,9 +123,43 @@ export function markSpeakingPrompt(doc: Json, p: Json, user: Json) {
     'Reply with only JSON: {"FC":6,"LR":6,"GRA":6,"summary":"two or three sentences","errors":[{"quote":"exact words","fix":"corrected version","reason":"one short line"}],"patterns":["repeated error pattern with an example"],"model":{"task":"the question","original":"the candidate\'s answer","band8":"a Band 8 answer in the candidate\'s own situation, natural spoken style"},"next":["three concrete tips"]}. Use half bands. List up to 12 errors.';
 }
 
-export function coursePrompt(p: Json, user: Json, catalog: Json[] = []) {
-  return 'You are an expert IELTS General Training coach. Design a personalised course for this candidate.\n' + brief(p, user) + '\n' + (catalog.length ? 'When one of these existing unit titles fits what the candidate needs, reuse it EXACTLY (same wording): ' + catalog.map((c) => '[' + c.skill + '] ' + clampStr(c.title, 90)).join(' | ') + '. Invent a new title only when none fits.\n' : '') + 'The candidate studies about ' + clampStr(p.studyTime || '1 hour a day', 60) + '. Build 12 units in 3 phases, ordered by impact: the skill with the biggest gap to its target gets the most units. Each unit is one focused point (a grammar pattern, a question-type strategy, a writing structure, a speaking technique, or topic vocabulary). Make units 4, 8 and 12 checkpoints: a timed single-skill mock test of the skill that most needs checking at that point.\n' +
-    'Reply with only JSON: {"title":"course name","summary":"two sentences","phases":[{"name":"Phase 1 · Weeks 1–4: ...","units":[{"id":"u1","skill":"S","title":"...","goal":"one line","checkpoint":false}]}]}. skill is one of L, R, W, S. For checkpoints set "checkpoint":true and "skill" to the skill tested. ids u1 to u12.';
+/* ---------- course building (shared with tef.ts) ---------- */
+// Course size from the time left: a checkpoint closes each phase.
+export function unitPlan(days: number) {
+  const plan = days < 15 ? { n: 6, phases: 2 } : days < 36 ? { n: 9, phases: 3 } : { n: 12, phases: 3 };
+  const per = plan.n / plan.phases;
+  return { ...plan, checkpoints: Array.from({ length: plan.phases }, (_, i) => (i + 1) * per) };
+}
+export const listAnd = (xs: (string | number)[], and: string) => (xs.length > 1 ? xs.slice(0, -1).join(', ') + ' ' + and + ' ' + xs[xs.length - 1] : String(xs[0] ?? ''));
+export type Studied = { skill: string; title: string; checkpoint: boolean; done: boolean; score: number | null; level: number | null };
+// Units of the previous course the candidate opened, with their quiz score or checkpoint result.
+export function studiedUnits(prev: Json | null | undefined): Studied[] {
+  const prog = (prev && prev.progress) || {};
+  return toArr<any>(prev && prev.phases).flatMap((ph) => toArr<any>(ph && ph.units)).filter((u) => u && prog[u.id]).slice(0, 16).map((u) => {
+    const g = prog[u.id]; const lv = g.band ?? g.nclc;
+    return { skill: String(u.skill || '').slice(0, 1), title: clampStr(u.title, 90), checkpoint: !!u.checkpoint, done: !!g.done, score: typeof g.score === 'number' ? g.score : null, level: typeof lv === 'number' ? lv : null };
+  });
+}
+// The shared lesson titles, minus the ones this candidate already passed.
+export function catalogFor(catalog: Json[], studied: Studied[]) {
+  const passed = new Set(studied.filter((s) => s.done && !s.checkpoint).map((s) => s.title.toLowerCase()));
+  return catalog.filter((c) => !passed.has(clampStr(c.title, 90).toLowerCase()));
+}
+function trendLine(p: Json) {
+  const h = toArr<any>(p.history).slice(-4);
+  if (!h.length) return '';
+  return 'Recent test results, oldest first: ' + h.map((e) => clampStr(e.date, 10) + ' ' + clampStr(e.kind, 12) + ' (' + ORDER.filter((k) => e.bands && e.bands[k] != null).map((k) => k + ' ' + e.bands[k]).concat(e.overall != null ? ['overall ' + e.overall] : []).join(', ') + ')').join('; ') + '.\n';
+}
+function studiedLine(st: Studied[]) {
+  if (!st.length) return '';
+  return 'Units already studied in the previous course: ' + st.map((s) => '[' + s.skill + '] ' + s.title + ' (' + (s.checkpoint ? 'checkpoint' + (s.level != null ? ', band ' + s.level : '') : 'quiz ' + (s.score ?? '?') + '%' + (s.done ? '' : ', not passed yet')) + ')').join(' | ') +
+    '. Do not repeat a passed unit unless its error pattern is still listed in the profile; then give it a new angle and a new title. A unit not passed yet may be kept with exactly the same title.\n';
+}
+
+export function coursePrompt(p: Json, user: Json, catalog: Json[] = [], prev: Json | null = null) {
+  const plan = unitPlan(daysLeft(p)); const st = studiedUnits(prev); const cat = catalogFor(catalog, st);
+  return 'You are an expert IELTS General Training coach. Design a personalised course for this candidate.\n' + brief(p, user) + '\n' + trendLine(p) + studiedLine(st) + (cat.length ? 'When one of these existing unit titles fits what the candidate needs, reuse it EXACTLY (same wording): ' + cat.map((c) => '[' + c.skill + '] ' + clampStr(c.title, 90)).join(' | ') + '. Invent a new title only when none fits.\n' : '') + 'The candidate studies about ' + clampStr(p.studyTime || '1 hour a day', 60) + ' and the exam is in about ' + daysLeft(p) + ' days. Build ' + plan.n + ' units in ' + plan.phases + ' phases that fit that time, ordered by impact: the skill with the biggest gap to its target gets the most units. Each unit is one focused point (a grammar pattern, a question-type strategy, a writing structure, a speaking technique, or topic vocabulary). Make units ' + listAnd(plan.checkpoints, 'and') + ' checkpoints: a timed single-skill mock test of the skill that most needs checking at that point.\n' +
+    'Reply with only JSON: {"title":"course name","summary":"two sentences","phases":[{"name":"Phase 1 · ...","units":[{"id":"u1","skill":"S","title":"...","goal":"one line","checkpoint":false}]}]}. skill is one of L, R, W, S. For checkpoints set "checkpoint":true and "skill" to the skill tested. ids u1 to u' + plan.n + '.';
 }
 export function lessonPrompt(p: Json, user: Json, u: Json, level: string) {
   return 'You are an expert IELTS General Training coach. Write one short, practical lesson for IELTS General Training candidates preparing for Canada immigration, ' + (LEVEL_TEXT[level] || LEVEL_TEXT.mid) + ' in this skill.\nUNIT: ' + SK[u.skill] + ' · ' + clampStr(u.title, 200) + ' — goal: ' + clampStr(u.goal, 300) + '\n' +

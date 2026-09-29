@@ -10,7 +10,7 @@ export interface ExamPrompts {
   weakKeys(p: Json, k: string): string[];
   levelBucket(p: Json, skill: string): string;
   lessonPrompt(p: Json, user: Json, u: Json, level: string): string;
-  coursePrompt(p: Json, user: Json, catalog?: Json[]): string;
+  coursePrompt(p: Json, user: Json, catalog?: Json[], prev?: Json | null): string;
   taskFbPrompt(p: Json, user: Json, u: Json, taskPrompt: string, answer: string): string;
   markWritingPrompt(doc: Json, p: Json, user: Json): string;
   markSpeakingPrompt(doc: Json, p: Json, user: Json): string;

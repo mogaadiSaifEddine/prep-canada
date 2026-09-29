@@ -425,7 +425,7 @@ function Report({ c }: P) {
       <p>{onTrack ? 'These results meet your CLB ' + c.CLBT() + ' targets. Keep the level steady and push toward the stretch bands.' : 'Honest verdict: not yet at CLB ' + c.CLBT() + ' in ' + ks.filter((k) => run.results[k].band < c.TARGET[k]).map((k) => SK[k] + ' (needs ' + c.TARGET[k].toFixed(1) + ')').join(', ') + '.'}</p>
       {weak.length ? <p><b>Question types to fix:</b> {weak.join(', ')}</p> : null}
       {allPats.length ? <p><b>Errors to watch:</b> {allPats.slice(0, 4).join('; ')}</p> : null}
-      <div className="row">{run.kind === 'placement' ? <button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>{S.course ? 'Rebuild my course from these results' : 'Build my course from these results'}</button> : null}<button className="btn" data-nav="tests" onClick={() => c.nav('tests')}>Take another mock</button></div>
+      <div className="row">{run.kind === 'placement' || (S.course && !run.unitId) ? <button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>{S.course ? 'Rebuild my course from these results' : 'Build my course from these results'}</button> : null}<button className="btn" data-nav="tests" onClick={() => c.nav('tests')}>Take another mock</button></div>
     </div>
     {ks.map((k) => <SectionReport key={k} c={c} k={k} r={run.results[k]} />)}
   </>;
@@ -444,11 +444,11 @@ function History({ c }: P) {
 /* ---------- course ---------- */
 function Course({ c }: P) {
   const app = useApp(); const S = c.S;
-  if (!app.ent.ielts?.course) return <Upsell exam="ielts" title="Your personal course" text="A 12-unit course built on your placement results, with lessons, quizzes, marked tasks and timed checkpoints." />;
-  if (S.courseBusy) return <div className="panel"><div className="row"><Spinner /><h2>Building your course</h2></div><p className="muted">Planning 12 units around your bands and error patterns. This takes up to a minute.</p></div>;
+  if (!app.ent.ielts?.course) return <Upsell exam="ielts" title="Your personal course" text="A course of up to 12 units built on your test results, with lessons, quizzes, marked tasks and timed checkpoints." />;
+  if (S.courseBusy) return <div className="panel"><div className="row"><Spinner /><h2>Building your course</h2></div><p className="muted">Planning units around your bands, error patterns, finished lessons and exam date. This takes up to a minute.</p></div>;
   if (!S.course) return (
     <div className="panel"><p className="eyebrow">Personal course</p><h2>A course built on your results</h2>
-      <p style={{ maxWidth: '64ch' }}>Twelve units, each one focused point with short teaching, a 10-question quiz and a task marked by your AI coach. Units 4, 8 and 12 are timed checkpoint tests. {S.profile.placementDone ? 'It uses your placement results.' : 'Take the placement test first for the best plan; you can also start now from your known weaknesses.'}</p>
+      <p style={{ maxWidth: '64ch' }}>Up to twelve units, sized to the time left before your exam. Each unit is one focused point with short teaching, a 10-question quiz and a task marked by your AI coach. Each phase ends with a timed checkpoint test. {S.profile.placementDone ? 'It uses your placement results.' : 'Take the placement test first for the best plan; you can also start now from your known weaknesses.'}</p>
       {S.courseErr ? <p className="banner bad">{S.courseErr}</p> : null}
       <div className="row"><button className="btn primary" data-act="build" onClick={() => c.buildCourse()}>Build my course</button>{!S.profile.placementDone ? <button className="btn" data-act="placement" onClick={() => c.placement()}>Placement test first</button> : null}</div>
     </div>

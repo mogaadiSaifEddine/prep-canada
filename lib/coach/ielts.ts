@@ -13,7 +13,9 @@ import { stopDictation, toggleDictation } from "../client/dictation";
 import { bridge } from "../client/bridge";
 import {
   CoachBase,
+  carryProgress,
   clone,
+  lessonKeyOf,
   fmtTime,
   pickVoices,
   toArr,
@@ -1119,7 +1121,7 @@ export class IeltsCoach extends CoachBase {
         phases: r.phases,
         createdAt: Date.now(),
         basedOn: clone(S.profile.bands),
-        progress: {},
+        progress: carryProgress(S.course, r.phases),
         version: uid(),
       };
       this.saveCourse();
@@ -1147,7 +1149,7 @@ export class IeltsCoach extends CoachBase {
     this.emit();
     window.scrollTo(0, 0);
     if (u.checkpoint) return;
-    const key = S.course.version + "_" + u.id;
+    const key = lessonKeyOf(S.course, u);
     let l = null;
     try {
       l = await this.getLesson(key);
@@ -1178,7 +1180,7 @@ export class IeltsCoach extends CoachBase {
   }
   relesson() {
     const u = this.S.lessonUnit;
-    this.genLesson(u, this.S.course.version + "_" + u.id);
+    this.genLesson(u, lessonKeyOf(this.S.course, u));
   }
   setQuizAnswer(i: number, v: string) {
     this.S.lesson.quiz[i]._given = v;
