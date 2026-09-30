@@ -505,6 +505,14 @@ export class IeltsCoach extends CoachBase {
   }
 
   /* ---------- generation queue ---------- */
+  protected activeRun() {
+    return this.S.run;
+  }
+  protected openPart() {
+    const S = this.S;
+    if (!S.run || S.view !== "section") return null;
+    return { k: S.sec, i: S.sec === "L" || S.sec === "R" ? S.tab : 0 };
+  }
   jobsFor(run: Run) {
     const jobs: { k: string; i: number }[] = [];
     for (const k of run.sections)

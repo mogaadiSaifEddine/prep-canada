@@ -3,7 +3,8 @@
 // cost nothing to generate.
 //
 // How an item is chosen for a learner:
-//   • never one they have already seen (pool_seen)
+//   • never one they have already seen (pool_seen: a part counts as seen once the learner opens it,
+//     not when it is prefetched, so a discarded test's unopened parts stay available)
 //   • same exam, section, part and difficulty
 //   • preferred: covers the question types they miss most, on a topic they haven't had, used less often
 //   • items reported by several learners are retired automatically
@@ -58,9 +59,13 @@ async function store(exam: string, k: string, i: number, diff: string, data: Jso
     [id, exam, k, i, diff, topicOf(data), typesOf(data), JSON.stringify(data), source || 'user']);
   return id;
 }
-async function markSeen(userId: string, id: string) {
-  await q(`insert into pool_seen(user_id, item_id) values($1,$2) on conflict do nothing`, [userId, id]);
-  await q(`update pool_items set uses=uses+1 where id=$1`, [id]);
+// Called by the client when the learner opens a part (or its section is marked). Serving an item
+// does not count: a discarded test gives its unopened parts back to the learner's pool.
+export async function markSeen(userId: string, ids: string[]) {
+  for (const id of ids) {
+    const r = await one(`insert into pool_seen(user_id, item_id) select $1, id from pool_items where id=$2 on conflict do nothing returning item_id`, [userId, id]);
+    if (r) await q(`update pool_items set uses=uses+1 where id=$1`, [id]);
+  }
 }
 
 // Generate one fresh item for a bucket (used by learners and by the admin pre-fill).
@@ -95,12 +100,10 @@ export async function contentFor(P: ExamPrompts, { exam, k, i, att, profile, use
       sc -= Math.min(3, Number(c.uses) / 25);                          // spread use across items
       if (sc > bestScore) { bestScore = sc; best = c; }
     }
-    await markSeen(user.id, best!.id);
     logUsage({ ...meta, task: exam + ':gen:' + k, model: textModel(false), cached: true });
     return { ...best!.content, _pool: best!.id };
   }
   const { data, id } = await generateItem(P, exam, k, i, diff, { att, profile, user, meta });
-  if (id) await markSeen(user.id, id);
   return id ? { ...data, _pool: id } : data;
 }
 

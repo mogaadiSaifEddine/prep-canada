@@ -1,6 +1,6 @@
 // Shared pieces of the IELTS and TEF coaches: a tiny observable store, saving in order,
 // timers, text helpers and device-voice selection.
-import { getDoc, putDoc } from '../client/api';
+import { api, getDoc, putDoc } from '../client/api';
 import { bridge } from '../client/bridge';
 import { stopAudio } from '../client/audio';
 import { hasTTS } from '../client/audio';
@@ -20,6 +20,7 @@ export type Run = {
   startedAt: number; date: string; finishedAt?: number;
   content: Record<string, Record<number, any>>; answers: any; state: any; results: Record<string, any>;
   status: string; overall?: number | null; nclc?: number | null;
+  seen?: string[]; // pool items of this run the learner has opened (already sent to the server)
 };
 export type GenState = 'busy' | 'ok' | { err: string };
 
@@ -47,9 +48,32 @@ export abstract class CoachBase {
   subscribe = (f: () => void) => { this.subs.add(f); return () => { this.subs.delete(f); }; };
   getVersion = () => this.version;
   /** Tell React the state changed (the old app's render()). */
-  emit() { this.version++; this.subs.forEach((f) => f()); }
+  emit() { this.version++; this.trackSeen(); this.subs.forEach((f) => f()); }
 
   protected abstract saveCurrent(): void;
+  /** The test in progress, if any. */
+  protected abstract activeRun(): Run | null;
+  /** The part on screen right now, if a test section is open. */
+  protected abstract openPart(): { k: string; i: number } | null;
+
+  /**
+   * Parts are prefetched when a test starts, but a pool item only counts as seen once the learner
+   * opens it (or its section is marked, since the results show every part). Unopened parts of a
+   * discarded test go back to the learner's pool.
+   */
+  private trackSeen() {
+    const run = this.activeRun(); if (!run || !run.id) return;
+    const seen = (run.seen = run.seen || []);
+    const ids: string[] = [];
+    const add = (k: string, i: number) => { const id = run.content[k] && run.content[k][i] && run.content[k][i]._pool; if (id && !seen.includes(id) && !ids.includes(id)) ids.push(id); };
+    for (const k of run.sections) if (run.results[k] || (run.state[k] && run.state[k].submitted)) for (const i in run.content[k] || {}) add(k, Number(i));
+    const p = this.openPart(); if (p) add(p.k, p.i);
+    if (!ids.length) return;
+    seen.push(...ids); this.saveRun(run);
+    api('POST', '/api/pool/seen', { exam: this.exam, attemptId: run.id, ids }).catch(() => {
+      run.seen = seen.filter((x) => !ids.includes(x)); // retried on the next change
+    });
+  }
 
   get = (key: string) => getDoc(this.exam, key);
   set = (key: string, val: unknown) => putDoc(this.exam, key, val);

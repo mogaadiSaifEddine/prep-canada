@@ -4,7 +4,7 @@ import { q, one, type Row } from './db';
 import { err, HttpError, uid, sha256, hashPassword, checkPassword, parseCookies, clampStr, toArr, baseUrl, words } from './util';
 import { activePlan, entitlements, isPaidFor, checkCanStart, requirePaid, bumpUsage, LIMITS, prices, EXAMS, sectionsThisMonth, type Exam } from './plans';
 import { aiJSON, aiChat, isMock } from './ai';
-import { contentFor, generateItem, lessonFor, lessonCatalog, report as poolReport, poolStats } from './pool';
+import { contentFor, generateItem, markSeen, lessonFor, lessonCatalog, report as poolReport, poolStats } from './pool';
 import { cachedSpeech, audioStats } from './audio';
 import { checkout, verify, markPaid, byProviderRef, publicPayment, methods, manualInfo } from './payments';
 import { currentDraws, saveManual, clearManual, BUNDLED } from './draws';
@@ -351,6 +351,14 @@ route('GET', '/api/usage/:exam', async ({ user: u, params }) => {
   const user = needUser(u); const exam = needExam(params.exam);
   const paid = isPaidFor(user, exam);
   return { paid, sectionsUsed: await sectionsThisMonth(user.id, exam), sectionsLimit: paid ? LIMITS.paid.sectionsPerMonth : null };
+});
+// The learner opened these parts: never serve them to this learner again.
+route('POST', '/api/pool/seen', async ({ user: u, body }) => {
+  const user = needUser(u); const exam = needExam(body.exam);
+  await getAttempt(user, exam, body.attemptId);
+  const ids = [...new Set(toArr<string>(body.ids).map(String).filter((x) => /^pi_[\w-]+$/.test(x)))].slice(0, 12);
+  await markSeen(user.id, ids);
+  return { ok: true };
 });
 route('POST', '/api/pool/report', async ({ user: u, body }) => {
   const user = needUser(u); const exam = needExam(body.exam);

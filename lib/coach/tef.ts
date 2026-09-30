@@ -88,6 +88,11 @@ export class TefCoach extends CoachBase {
   }
 
   /* ---------- generation ---------- */
+  protected activeRun() { return this.S.run; }
+  protected openPart() {
+    const S = this.S; if (!S.run || S.view !== 'section') return null; const k = S.sec;
+    return { k, i: k === 'R' ? S.tab : k === 'L' ? Number(S.run.state.L && S.run.state.L.pos && S.run.state.L.pos.p) || 0 : 0 };
+  }
   jobsFor(run: Run) { const jobs: { k: string; i: number }[] = []; for (const k of run.sections) for (let i = 0; i < jobCount(k); i++) if (!(run.content[k] && run.content[k][i])) jobs.push({ k, i }); return jobs; }
   sectionReady(run: Run, k: string) { for (let i = 0; i < jobCount(k); i++) if (!(run.content[k] && run.content[k][i])) return false; return true; }
   async generateAll(run: Run) {
