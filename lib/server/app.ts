@@ -3,7 +3,7 @@
 import { q, one, type Row } from './db';
 import { err, HttpError, uid, sha256, hashPassword, checkPassword, parseCookies, clampStr, toArr, baseUrl, words } from './util';
 import { activePlan, entitlements, isPaidFor, checkCanStart, requirePaid, bumpUsage, LIMITS, prices, EXAMS, sectionsThisMonth, type Exam } from './plans';
-import { aiJSON, aiChat } from './gemini';
+import { aiJSON, aiChat, isMock } from './ai';
 import { contentFor, generateItem, lessonFor, lessonCatalog, report as poolReport, poolStats } from './pool';
 import { cachedSpeech, audioStats } from './audio';
 import { checkout, verify, markPaid, byProviderRef, publicPayment, methods, manualInfo } from './payments';
@@ -87,7 +87,7 @@ const routes: { method: string; re: RegExp; fn: Handler }[] = [];
 const route = (method: string, path: string, fn: Handler) => routes.push({ method, re: new RegExp('^' + path.replace(/:(\w+)/g, '(?<$1>[^/]+)') + '$'), fn });
 
 route('GET', '/api/health', async () => {
-  const missing = ['DATABASE_URL', 'GEMINI_API_KEY', 'ADMIN_EMAILS'].filter((k) => !process.env[k] && !(k === 'GEMINI_API_KEY' && process.env.GEMINI_MOCK === '1'));
+  const missing = ['DATABASE_URL', 'OPENROUTER_API_KEY', 'ADMIN_EMAILS'].filter((k) => !process.env[k] && !(k === 'OPENROUTER_API_KEY' && isMock()));
   let db = false;
   if (process.env.DATABASE_URL) { try { await q('select 1'); db = true; } catch (e) { console.error('DB check failed', (e as Error).message); } }
   return { ok: !missing.length && db, missing, db };

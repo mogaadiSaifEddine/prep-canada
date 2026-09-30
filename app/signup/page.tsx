@@ -29,7 +29,7 @@ export default function SignupPage() {
         <label className="field"><span>{t('Email')}</span><input type="email" id="s-email" autoComplete="email" required value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} /></label>
         <label className="field"><span>{t('Password (at least 8 characters)')}</span><input type="password" id="s-pass" autoComplete="new-password" minLength={8} required value={f.pass} onChange={(e) => setF({ ...f, pass: e.target.value })} /></label>
         <label className="check"><input type="checkbox" id="s-consent" checked={f.consent} onChange={(e) => setF({ ...f, consent: e.target.checked })} />
-          <span>{tr('I accept the {terms} and the {privacy}, including that my answers are processed by an AI service (Google Gemini) outside Tunisia to create and mark my tests.', { terms: <a href="/legal/terms" target="_blank">{t('terms')}</a>, privacy: <a href="/legal/privacy" target="_blank">{t('privacy policy')}</a> })}</span>
+          <span>{tr('I accept the {terms} and the {privacy}, including that my answers are processed by AI services (through OpenRouter) outside Tunisia to create and mark my tests.', { terms: <a href="/legal/terms" target="_blank">{t('terms')}</a>, privacy: <a href="/legal/privacy" target="_blank">{t('privacy policy')}</a> })}</span>
         </label>
         <p className="banner bad small" id="s-err" hidden={!error}>{error}</p>
         <button className="btn primary" type="submit" disabled={busy}>{t('Create account')}</button>

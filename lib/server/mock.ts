@@ -1,5 +1,5 @@
-// Offline stand-in for Gemini, used when GEMINI_MOCK=1 (local testing only).
-import { pcmToWav } from './gemini';
+// Offline stand-in for the AI services, used when AI_MOCK=1 (local testing only).
+import { pcmToWav } from './tts';
 
 const range = <T>(n: number, f: (i: number) => T): T[] => Array.from({ length: n }, (_, i) => f(i));
 

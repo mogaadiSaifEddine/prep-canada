@@ -1,4 +1,4 @@
-// AI cost tracking: every Gemini call (and every cache hit) is logged with an estimated USD cost,
+// AI cost tracking: every AI call (and every cache hit) is logged with an estimated USD cost,
 // so the admin page can show real spend, cache hit rates and cost per paying user.
 import { q } from './db';
 
@@ -19,6 +19,7 @@ function prices(): Record<string, ModelPrice> {
 }
 export type UsageRecord = { userId?: string | null; exam?: string | null; task?: string; model?: string; inTok?: number; outTok?: number; audioSec?: number; cached?: boolean };
 export function estimateUSD(model: string | undefined, { inTok = 0, outTok = 0, audioSec = 0 }: UsageRecord = {}) {
+  if (model && (model.endsWith(':free') || model === 'openrouter/free')) return 0;
   const p = prices()[model || ''] || { in: 1, out: 5, audio: 10 };
   return (inTok * (p.in || 0) + outTok * (p.out || 0) + audioSec * AUDIO_TOKENS_PER_SEC * (p.audio || 0)) / 1e6;
 }

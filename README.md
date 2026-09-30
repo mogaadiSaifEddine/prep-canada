@@ -20,7 +20,8 @@ Next.js 16 (App Router) + React 19 + TypeScript. Real URLs (`/ielts`, `/paths/sc
 | `lib/coach/` | Coach logic (tests, timers, marking, course), as observable controllers the views subscribe to. |
 | `lib/client/` | Browser helpers: API client, paths store, audio and dictation, theme. |
 | `lib/server/prompts/` | All AI prompts, built on the server from the saved profile, so users can't send their own prompts. |
-| `lib/server/gemini.ts` | Calls Gemini for text (JSON) and speech (TTS). The key stays on the server. |
+| `lib/server/ai.ts` | Calls free text models through OpenRouter (JSON and the TEF examiner chat), falling back through a list of models. The key stays on the server. |
+| `lib/server/tts.ts` | Optional studio voices with Gemini TTS; off when `GEMINI_API_KEY` is empty. |
 | `lib/server/plans.ts` | Plans, quotas and fair-use limits. |
 | `lib/server/payments.ts` | Konnect, Flouci and manual payments. Plans are prepaid and never renew automatically. |
 | `lib/server/db.ts` | Postgres. The tables are created on the first request. |
@@ -68,7 +69,7 @@ Progress is saved per account (docs namespace `journey`).
 - **Lesson pool:** lessons are shared by unit title and level. The course generator is steered towards unit titles that already exist.
 - **Audio cache:** every spoken clip is stored once as MP3, keyed by a hash of exactly what is said, and shared across learners. The cache size is capped by `AUDIO_CACHE_MAX_MB` (default 400); the least-played clips are pruned first.
 - **Limits:** paid plans get `PAID_SECTIONS_PER_MONTH` test sections per exam (default 60; a full test uses 4) and at most 6 new tests a day.
-- **Cost tracking:** every AI call and cache hit is logged with an estimated cost. Admin shows monthly spend, cost per paying user and cache hit rates. Update `AI_PRICES_JSON` when Google changes prices (Gemini 3.8 doubles on 1 Jan 2027). `USD_TND` sets the exchange rate used on the admin page.
+- **Cost tracking:** every AI call and cache hit is logged with an estimated cost. Admin shows monthly spend, cost per paying user and cache hit rates. Free OpenRouter models are logged at $0; set `AI_PRICES_JSON` for any paid model (Gemini TTS doubles on 1 Jan 2027). `USD_TND` sets the exchange rate used on the admin page.
 
 ## Run locally
 
@@ -89,13 +90,13 @@ NODE_PATH=$(npm root -g) node test/e2e.cjs   # also paths.cjs, visitor.cjs, scor
 POOL_FRESH_SMALL=0 ./scripts/devserver.sh && node test/pool.mjs   # pool + audio cache test
 ```
 
-For real AI locally, put `DATABASE_URL=pglite:./.data`, `GEMINI_API_KEY` and `ADMIN_EMAILS` in `.env`, then `npm run dev`.
+For real AI locally, put `DATABASE_URL=pglite:./.data`, `OPENROUTER_API_KEY` and `ADMIN_EMAILS` in `.env`, then `npm run dev`.
 
 ## Deploy (Vercel)
 
 1. Create a Postgres database, for example Neon through Vercel's Storage tab or Supabase, and copy the connection string.
-2. Get a Gemini API key at https://aistudio.google.com/apikey. Enable billing for production use, because the free tier's rate limits are low.
-3. Import the repo in Vercel, then add the variables from `.env.example`. `vercel.json` sets the framework to Next.js, so it builds correctly even if the project was first created with the Node preset. At minimum you need `DATABASE_URL`, `GEMINI_API_KEY` and `ADMIN_EMAILS`.
+2. Get an OpenRouter key at https://openrouter.ai/keys and allow free endpoints at https://openrouter.ai/settings/privacy. Free models have account-wide daily limits (much higher once the account has bought $10 of credit), so watch for "busy" errors as users grow. For studio voices, also set a Gemini key from https://aistudio.google.com/apikey with billing on.
+3. Import the repo in Vercel, then add the variables from `.env.example`. `vercel.json` sets the framework to Next.js, so it builds correctly even if the project was first created with the Node preset. At minimum you need `DATABASE_URL`, `OPENROUTER_API_KEY` and `ADMIN_EMAILS`.
 4. Deploy, then open `/api/health`. It should return `{"ok":true}`.
 5. Sign up with an email listed in `ADMIN_EMAILS` to get the Admin page.
 
@@ -110,7 +111,7 @@ Every payment is re-verified with the provider before a plan is activated. The a
 ## Before a public launch (Tunisia)
 
 - **Company and invoicing:** receipts show `BUSINESS_NAME` and `MATRICULE_FISCAL`. Check invoice requirements with your expert-comptable.
-- **Law 2004-63:** file the INPDP declaration, and ask for authorisation for transfers abroad (Gemini, and hosting outside Tunisia). Put the number in `INPDP_DECLARATION`.
+- **Law 2004-63:** file the INPDP declaration, and ask for authorisation for transfers abroad (OpenRouter and its model providers, Google for studio voices, and hosting outside Tunisia). Put the number in `INPDP_DECLARATION`.
 - **Paying Google and Vercel from Tunisia:** you need a foreign-currency route, such as the Startup Act technology card or a foreign-currency account.
 - **Legal pages:** the Terms and Privacy pages in `app/legal/[kind]/page.tsx` are a starting draft. Have a Tunisian lawyer review them.
 - **Trademarks:** the app says it is not affiliated with IELTS or CCI Paris Île-de-France, and that all scores are estimates. Keep it that way.

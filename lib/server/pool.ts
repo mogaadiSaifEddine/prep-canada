@@ -12,9 +12,8 @@
 import { q, one, type Row } from './db';
 import type { ExamPrompts, Json } from './prompts/types';
 import { uid, toArr, clampStr } from './util';
-import { aiJSON } from './gemini';
+import { aiJSON, textModel } from './ai';
 import { logUsage } from './cost';
-import { textModel } from './gemini';
 
 const num = (k: string, d: number) => (process.env[k] !== undefined && process.env[k] !== '' ? Number(process.env[k]) : d);
 const FRESH_SMALL = () => num('POOL_FRESH_SMALL', 0); // bucket < POOL_SMALL items

@@ -138,7 +138,7 @@ export function parseFeed(json: any): Live {
 
 let inflight: Promise<Live> | null = null;
 async function refreshEE(force?: boolean): Promise<Live | null> {
-  if (process.env.DRAWS_OFFLINE === '1' || process.env.GEMINI_MOCK === '1') return null;
+  if (process.env.DRAWS_OFFLINE === '1' || process.env.AI_MOCK === '1' || process.env.GEMINI_MOCK === '1') return null;
   const cached = await getSetting('draws_ee').catch(() => null);
   const last = await getSetting('draws_ee_try').catch(() => null);
   const fresh = cached && Date.now() - cached.at < REFRESH_MS;

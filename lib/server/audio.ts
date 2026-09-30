@@ -5,7 +5,7 @@
 import { Mp3Encoder } from '@breezystack/lamejs';
 import { q, one } from './db';
 import { sha256 } from './util';
-import { tts, ttsModel, type Line } from './gemini';
+import { tts, ttsModel, type Line } from './tts';
 import { logUsage } from './cost';
 
 const MAX_MB = () => Number(process.env.AUDIO_CACHE_MAX_MB || 400);

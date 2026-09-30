@@ -1,4 +1,4 @@
-// End-to-end check against a local server running with GEMINI_MOCK=1 PAYMENTS_MOCK=1.
+// End-to-end check against a local server running with AI_MOCK=1 PAYMENTS_MOCK=1.
 // npm run build && ./scripts/devserver.sh && NODE_PATH=$(npm root -g) node test/e2e.cjs
 const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://localhost:3100';

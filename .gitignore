@@ -7,3 +7,6 @@ node_modules/
 next-env.d.ts
 tsconfig.tsbuildinfo
 test-results/
+
+# Stray API key files
+sk-*.txt

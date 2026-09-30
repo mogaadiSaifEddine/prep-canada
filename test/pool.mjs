@@ -1,4 +1,4 @@
-// Pool + audio cache check. Server must run with GEMINI_MOCK=1 PAYMENTS_MOCK=1 POOL_FRESH_SMALL=0 ADMIN_EMAILS=admin@x.tn
+// Pool + audio cache check. Server must run with AI_MOCK=1 PAYMENTS_MOCK=1 POOL_FRESH_SMALL=0 ADMIN_EMAILS=admin@x.tn
 const BASE = process.env.BASE || 'http://localhost:3100';
 const H = { 'content-type': 'application/json', 'x-requested-with': 'prep-canada' };
 let failures = 0;

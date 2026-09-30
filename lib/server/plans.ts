@@ -1,6 +1,7 @@
 // Plans, prices and what each plan allows. Prices are in TND, VAT included (TTC).
 import { one, q, type Row } from './db';
 import { err, errT, today } from './util';
+import { ttsAvailable } from './tts';
 import type { ActivePlan, Entitlement, Exam, Period, Plan, Prices } from '../shared/types';
 export type { Exam };
 
@@ -32,7 +33,7 @@ export function entitlements(u: Row) {
   const out = {} as Record<Exam, Entitlement>;
   for (const ex of EXAMS) {
     const paid = isPaidFor(u, ex);
-    out[ex] = { paid, course: paid, lessons: paid, tts: paid, unlimitedMocks: paid };
+    out[ex] = { paid, course: paid, lessons: paid, tts: paid && ttsAvailable(), unlimitedMocks: paid };
   }
   return out;
 }
