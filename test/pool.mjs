@@ -1,4 +1,4 @@
-// Pool + audio cache check. Server must run with GEMINI_MOCK=1 PAYMENTS_MOCK=1 POOL_FRESH_SMALL=0 ADMIN_EMAILS=admin@x.tn
+// Pool + audio cache check. Server must run with AI_MOCK=1 PAYMENTS_MOCK=1 POOL_FRESH_SMALL=0 ADMIN_EMAILS=admin@x.tn
 const BASE = process.env.BASE || 'http://localhost:3100';
 const H = { 'content-type': 'application/json', 'x-requested-with': 'prep-canada' };
 let failures = 0;
@@ -17,6 +17,7 @@ async function client(email) {
 }
 const start = (c, exam, kind, sections) => c('POST', '/api/attempts/start', { exam, kind, sections, diff: 'exam' }).then((r) => r.id);
 const gen = (c, exam, id, k, i) => c('POST', '/api/ai', { exam, task: 'gen', attemptId: id, k, i });
+const seen = (c, exam, id, ids) => c('POST', '/api/pool/seen', { exam, attemptId: id, ids });
 const save = (c, exam, id, content) => c('PUT', '/api/docs/' + exam + '/attempt_' + id, { data: { id, content, answers: {} } });
 
 (async () => {
@@ -33,12 +34,16 @@ const save = (c, exam, id, content) => c('PUT', '/api/docs/' + exam + '/attempt_
   const bR = await gen(B, 'ielts', bId, 'R', 0);
   ok(bR._pool === aR._pool, 'second learner gets the same section from the pool');
 
-  // 2. B never sees it twice
+  // 2. A prefetched part B never opened comes back; once opened, B never gets it again
   const me = await B('GET', '/api/me');
   await admin('POST', '/api/admin/users/' + me.user.id + '/plan', { plan: 'duo', days: 30 });
+  const b1 = await start(B, 'ielts', 'mock', ['R']);
+  const bR1 = await gen(B, 'ielts', b1, 'R', 0);
+  ok(bR1._pool === aR._pool, 'a part that was prefetched but never opened is offered again');
+  await seen(B, 'ielts', b1, [bR1._pool]);
   const b2 = await start(B, 'ielts', 'mock', ['R']);
   const bR2 = await gen(B, 'ielts', b2, 'R', 0);
-  ok(bR2._pool && bR2._pool !== aR._pool, 'a learner who has seen every pooled item gets a new one');
+  ok(bR2._pool && bR2._pool !== aR._pool, 'an opened part is never served again; with none left, a new one is written');
 
   // 3. Audio: A (paid) voices Listening part 1; B plays the same pooled part from the cache
   const meA = await A('GET', '/api/me');
